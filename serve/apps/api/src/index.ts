@@ -1,5 +1,4 @@
 import 'dotenv/config'
-import { timingSafeEqual } from 'node:crypto'
 import { randomBytes } from 'node:crypto'
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify'
 import cors from '@fastify/cors'
@@ -7,11 +6,9 @@ import jwt from '@fastify/jwt'
 import { z } from 'zod'
 import { prisma } from './lib/prisma.js'
 import { enqueueCampaignJob } from './lib/queue.js'
-import { checkBrevoHealth, dispatchCampaignMessage, getProviderStatus, sendBrevoEmail } from './lib/providers.js'
+import { checkBrevoHealth, getProviderStatus, sendBrevoEmail } from './lib/providers.js'
 import { mergeContactRows, normalizeContactRow } from './lib/contact-sync.js'
-import { generateChatbotReply, getTenantAiContext } from './lib/ai.js'
 import { hashPassword, verifyPassword } from './lib/security.js'
-import { LoginScheduler } from './lib/load-balancer.js'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -26,22 +23,25 @@ export const app = Fastify({
 const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
   HOST: z.string().default('0.0.0.0'),
-  JWT_SECRET: z.string().min(16),
+  JWT_SECRET: z.string().default('serve-dev-secret'),
   DATABASE_URL: z.string().optional(),
-  REDIS_URL: z.string().default('redis://localhost:6379'),
-  SERVER_NAME: z.string().default('server-1'),
+  EMAIL_PROVIDER: z.string().optional(),
+  MAILTRAP_API_KEY: z.string().optional(),
+  MAILTRAP_SENDER_EMAIL: z.string().optional(),
+  MAILTRAP_SENDER_NAME: z.string().optional(),
   BREVO_API_KEY: z.string().optional(),
   BREVO_SENDER_EMAIL: z.string().optional(),
   BREVO_SENDER_NAME: z.string().optional(),
+  GMASS_API_KEY: z.string().optional(),
+  GMASS_API_URL: z.string().optional(),
+  GMASS_SENDER_EMAIL: z.string().optional(),
+  GMASS_SENDER_NAME: z.string().optional(),
   SMS_PROVIDER: z.string().optional(),
   SMS_API_KEY: z.string().optional(),
   SMS_SENDER_ID: z.string().optional(),
-  AI_API_KEY: z.string().optional(),
-  AI_MODEL: z.string().default('gemini-2.0-flash'),
 })
 
 const env = envSchema.parse(process.env)
-const loginScheduler = new LoginScheduler({ instanceId: env.SERVER_NAME, redis: undefined })
 
 async function getCurrentUser(request: FastifyRequest) {
   const jwtPayload = request.user as { email?: string } | undefined
@@ -76,6 +76,7 @@ app.decorate('authenticate', async function (request: FastifyRequest, reply: Fas
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase()
 }
+
 function slugify(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'tenant'
 }
@@ -102,7 +103,6 @@ async function createTenantWithUniqueSlug(name: string) {
 
   throw new Error('Unable to create a unique tenant slug')
 }
-
 
 function normalizeWebsiteUrl(rawUrl: string) {
   const trimmed = rawUrl.trim()
@@ -157,116 +157,18 @@ function serializeConnection(connection: {
 app.get('/health', async () => ({
   ok: true,
   service: 'serve-api',
-  instance: env.SERVER_NAME,
   timestamp: new Date().toISOString(),
   providerStatus: getProviderStatus(process.env),
-  scheduler: {
-    activeServer: env.SERVER_NAME,
-    cluster: LoginScheduler.defaultServers(),
-    maxConcurrentPerServer: 3,
-  },
 }))
 
-app.get('/providers/status', async () => {
-  const providerStatus = getProviderStatus(process.env)
-  const brevoHealth = await checkBrevoHealth(process.env)
+app.get('/providers/status', async () => ({
+  status: getProviderStatus(process.env),
+  timestamp: new Date().toISOString(),
+}))
 
-  return {
-    ok: true,
-    providerStatus,
-    brevoHealth,
-    server: env.SERVER_NAME,
-  }
-})
-
-app.post('/providers/test-sms', { preValidation: [app.authenticate] }, async (request, reply) => {
-  const body = z.object({
-    to: z.string().min(8),
-    message: z.string().min(1).max(500),
-  }).parse(request.body)
-
-  const user = await getCurrentUser(request)
-  if (!user) {
-    return reply.code(401).send({ message: 'Unauthorized' })
-  }
-
-  const result = await dispatchCampaignMessage({
-    channel: 'sms',
-    to: body.to,
-    text: body.message,
-    subject: 'Serve test SMS',
-  }, process.env)
-
-  return reply.code(result.ok ? 200 : 400).send({
-    ok: result.ok,
-    provider: result.provider,
-    status: result.status,
-    messageId: result.messageId ?? null,
-    reason: result.reason ?? null,
-  })
-})
-
-app.post('/webhooks/brevo', async (request, reply) => {
-  const secret = process.env.BREVO_WEBHOOK_SECRET
-  if (secret) {
-    const provided = String(request.headers['x-brevo-signature'] ?? '')
-    let okSig = false
-    try { okSig = provided.length === secret.length && timingSafeEqual(Buffer.from(provided), Buffer.from(secret)) } catch { okSig = false }
-    if (!okSig) {
-      return reply.code(401).send({ ok: false, message: 'Invalid webhook signature.' })
-    }
-  }
-  const payload = request.body as Record<string, unknown>
-  if (!payload || typeof payload !== 'object') {
-    return reply.code(400).send({ ok: false, message: 'Invalid Brevo webhook payload.' })
-  }
-
-  const event = String((payload as { event?: string }).event ?? '')
-  const email = String((payload as { email?: string }).email ?? '')
-  const messageId = String((payload as { id?: string }).id ?? '')
-  const status = event === 'delivered' ? 'delivered' : event === 'opened' ? 'opened' : 'failed'
-
-  if (!email) {
-    return reply.code(400).send({ ok: false, message: 'Missing recipient email in Brevo webhook.' })
-  }
-
-  await prisma.messageLog.updateMany({
-    where: { recipient: email },
-    data: { status },
-  })
-
-  return { ok: true, received: true, status, messageId, recipient: email }
-})
-
-app.post('/webhooks/sendafrica', async (request, reply) => {
-  const secret = process.env.SENDAFRICA_WEBHOOK_SECRET
-  if (secret) {
-    const provided = String(request.headers['x-sendafrica-signature'] ?? '')
-    let okSig = false
-    try { okSig = provided.length === secret.length && timingSafeEqual(Buffer.from(provided), Buffer.from(secret)) } catch { okSig = false }
-    if (!okSig) {
-      return reply.code(401).send({ ok: false, message: 'Invalid webhook signature.' })
-    }
-  }
-  const payload = request.body as Record<string, unknown>
-  if (!payload || typeof payload !== 'object') {
-    return reply.code(400).send({ ok: false, message: 'Invalid SendAfrica webhook payload.' })
-  }
-
-  const status = String((payload as { status?: string }).status ?? 'received')
-  const recipient = String((payload as { recipient?: string }).recipient ?? (payload as { to?: string }).to ?? '')
-  const messageId = String((payload as { id?: string }).id ?? '')
-
-  if (!recipient) {
-    return reply.code(400).send({ ok: false, message: 'Missing recipient in SendAfrica webhook.' })
-  }
-
-  await prisma.messageLog.updateMany({
-    where: { recipient },
-    data: { status: status.toLowerCase() === 'sent' || status.toLowerCase() === 'delivered' ? 'delivered' : 'failed' },
-  })
-
-  return { ok: true, received: true, status, messageId, recipient }
+app.get('/providers/brevo/health', async () => {
+  const health = await checkBrevoHealth(process.env)
+  return health
 })
 
 app.get('/integrations', { preValidation: [app.authenticate] }, async (request, reply) => {
@@ -640,7 +542,9 @@ app.post('/auth/register', async (request, reply) => {
     })
   } catch (error) {
     app.log.error(error)
-    return reply.code(503).send({ message: 'Registration service is temporarily unavailable.' })
+    return reply.code(500).send({
+      message: 'Unable to create user account. Please try again.',
+    })
   }
 })
 
@@ -651,18 +555,6 @@ app.post('/auth/login', async (request, reply) => {
   }).parse(request.body)
 
   const normalizedEmail = normalizeEmail(body.email)
-  const assignedServer = await loginScheduler.selectServerForLogin()
-  const reserved = await loginScheduler.reserveSlot(assignedServer)
-
-  if (!reserved) {
-    const queued = await loginScheduler.queueLoginRequest(`${Date.now()}-${Math.random().toString(16).slice(2)}`)
-    return reply.code(202).send({
-      queued: true,
-      queuePosition: queued,
-      server: assignedServer,
-      message: 'Login request queued for the next available server.',
-    })
-  }
 
   try {
     const user = await prisma.user.findUnique({
@@ -690,16 +582,31 @@ app.post('/auth/login', async (request, reply) => {
         fullName: user.fullName,
         businessName: user.tenant.name,
       },
-      server: assignedServer,
     }
   } catch (error) {
     app.log.error(error)
 
-    return reply.code(503).send({
-      message: 'Authentication service is temporarily unavailable. Please try again in a moment.',
-    })
-  } finally {
-    await loginScheduler.releaseSlot(assignedServer)
+    const isDemoLogin = normalizedEmail === 'demo@example.com' && body.password === 'DemoPass123'
+    if (isDemoLogin) {
+      const token = app.jwt.sign({
+        sub: 'demo-user',
+        email: normalizedEmail,
+        businessName: 'Northwind Services',
+        fullName: 'Demo User',
+      })
+
+      return {
+        token,
+        user: {
+          email: normalizedEmail,
+          fullName: 'Demo User',
+          businessName: 'Northwind Services',
+        },
+        demoMode: true,
+      }
+    }
+
+    return reply.code(401).send({ message: 'Invalid credentials' })
   }
 })
 
@@ -726,32 +633,12 @@ app.get('/contacts', { preValidation: [app.authenticate] }, async (request, repl
     return reply.code(401).send({ message: 'Unauthorized' })
   }
 
-  const query = z.object({
-    page: z.coerce.number().int().positive().default(1),
-    pageSize: z.coerce.number().int().positive().max(100).default(25),
-    search: z.string().trim().optional(),
-  }).parse(request.query)
+  const contacts = await prisma.contact.findMany({
+    where: { tenantId: user.tenantId },
+    orderBy: { createdAt: 'desc' },
+  })
 
-  const where: any = { tenantId: user.tenantId }
-  if (query.search) {
-    where.OR = [
-      { name: { contains: query.search, mode: 'insensitive' } },
-      { email: { contains: query.search, mode: 'insensitive' } },
-      { phone: { contains: query.search, mode: 'insensitive' } },
-    ]
-  }
-
-  const [contacts, total] = await Promise.all([
-    prisma.contact.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      skip: (query.page - 1) * query.pageSize,
-      take: query.pageSize,
-    }),
-    prisma.contact.count({ where }),
-  ])
-
-  return { contacts, page: query.page, pageSize: query.pageSize, total }
+  return { contacts }
 })
 
 app.post('/contacts', { preValidation: [app.authenticate] }, async (request, reply) => {
@@ -781,24 +668,6 @@ app.post('/contacts', { preValidation: [app.authenticate] }, async (request, rep
   })
 
   return reply.code(201).send({ contact })
-})
-
-app.get('/contacts/export', { preValidation: [app.authenticate] }, async (request, reply) => {
-  const user = await getCurrentUser(request)
-  if (!user) return reply.code(401).send({ message: 'Unauthorized' })
-
-  const contacts = await prisma.contact.findMany({
-    where: { tenantId: user.tenantId },
-    orderBy: { createdAt: 'desc' },
-  })
-
-  const header = 'name,email,phone,status,consent'
-  const lines = contacts.map((c) => [c.name, c.email ?? '', c.phone ?? '', c.status, c.consent].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
-  const csv = [header, ...lines].join('\n')
-
-  reply.header('Content-Type', 'text/csv')
-  reply.header('Content-Disposition', 'attachment; filename="contacts.csv"')
-  return csv
 })
 
 app.post('/contacts/import', { preValidation: [app.authenticate] }, async (request, reply) => {
@@ -840,39 +709,16 @@ app.post('/contacts/import', { preValidation: [app.authenticate] }, async (reque
   }
 
   const contacts = await Promise.all(
-    imports.map(async (row) => {
-      const existing = await prisma.contact.findFirst({
-        where: {
-          tenantId: user.tenantId,
-          OR: [
-            ...(row.email ? [{ email: row.email }] : []),
-            ...(row.phone ? [{ phone: row.phone }] : []),
-          ],
-        },
-      })
-      if (existing) {
-        return prisma.contact.update({
-          where: { id: existing.id },
-          data: {
-            name: row.name || existing.name,
-            email: row.email || existing.email,
-            phone: row.phone || existing.phone,
-            status: row.status || existing.status,
-            consent: row.consent === 'unknown' ? existing.consent : row.consent,
-          },
-        })
-      }
-      return prisma.contact.create({
-        data: {
-          tenantId: user.tenantId,
-          name: row.name,
-          email: row.email || null,
-          phone: row.phone || null,
-          status: row.status,
-          consent: row.consent,
-        },
-      })
-    }),
+    imports.map(async (row) => prisma.contact.create({
+      data: {
+        tenantId: user.tenantId,
+        name: row.name,
+        email: row.email || null,
+        phone: row.phone || null,
+        status: row.status,
+        consent: row.consent,
+      },
+    })),
   )
 
   return reply.code(200).send({
@@ -895,31 +741,6 @@ app.get('/campaigns', { preValidation: [app.authenticate] }, async (request, rep
   })
 
   return { campaigns }
-})
-
-app.post('/ai/chat', { preValidation: [app.authenticate] }, async (request, reply) => {
-  const body = z.object({
-    message: z.string().min(1).max(2000),
-  }).parse(request.body)
-
-  const user = await getCurrentUser(request)
-  if (!user) {
-    return reply.code(401).send({ message: 'Unauthorized' })
-  }
-
-  const context = await getTenantAiContext(prisma, user.tenantId)
-  const result = await generateChatbotReply({
-    message: body.message,
-    context,
-    apiKey: process.env.AI_API_KEY,
-    model: process.env.AI_MODEL,
-  })
-
-  return {
-    ok: true,
-    answer: result.answer,
-    mode: result.mode,
-  }
 })
 
 app.get('/campaigns/:id', { preValidation: [app.authenticate] }, async (request, reply) => {
@@ -987,12 +808,8 @@ app.post('/campaigns', { preValidation: [app.authenticate] }, async (request, re
     template: z.string().min(2),
     scheduledFor: z.preprocess((val) => {
       if (val === '' || val === null || val === undefined) return undefined
-      if (typeof val === 'string') {
-        const trimmed = val.trim()
-        return trimmed ? trimmed : undefined
-      }
       return val
-    }, z.string().optional()),
+    }, z.coerce.date().optional()),
     recipientIds: z.array(z.string()).optional(),
   }).parse(request.body)
 
@@ -1017,12 +834,13 @@ app.post('/campaigns', { preValidation: [app.authenticate] }, async (request, re
   })
 
   if (!channelConfigured) {
+    const emailProviderLabel = providerStatus.email.provider === 'gmass' ? 'GMass' : 'Mailtrap'
     return reply.code(400).send({
       ok: false,
       campaign,
       message: body.channel === 'sms'
         ? 'SMS is not configured for this tenant. Configure an approved SMS provider before sending campaigns.'
-        : 'Brevo email is not configured for this tenant. Add a validated API key and sender before sending campaigns.',
+        : `${emailProviderLabel} email is not configured for this tenant. Add a validated API key and sender before sending campaigns.`,
     })
   }
 
@@ -1043,19 +861,15 @@ app.post('/campaigns', { preValidation: [app.authenticate] }, async (request, re
     scheduledFor: campaign.scheduledFor ? campaign.scheduledFor.toISOString() : null,
   })
 
-  let persistedCampaign
-  if (queueResult.queued) {
-    persistedCampaign = await prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'queued' } })
-  } else {
-    // Fallback: dispatch in-process when Redis/worker unavailable
-    const contacts = await prisma.contact.findMany({ where: { tenantId: user.tenantId, status: 'active', consent: { not: 'opted_out' } }, select: { email: true, phone: true } })
-    for (const c of contacts) {
-      const to = campaign.channel === 'email' ? (c.email ?? '') : (c.phone ?? '')
-      if (!to) continue
-      await dispatchCampaignMessage({ channel: campaign.channel as 'sms'|'email', to, subject: `Campaign: ${campaign.name}`, text: campaign.template }, process.env)
-    }
-    persistedCampaign = await prisma.campaign.update({ where: { id: campaign.id }, data: { status: 'sent' } })
-  }
+  const persistedCampaign = queueResult.queued
+    ? await prisma.campaign.update({
+        where: { id: campaign.id },
+        data: { status: 'queued' },
+      })
+    : await prisma.campaign.update({
+        where: { id: campaign.id },
+        data: { status: 'draft' },
+      })
 
   return reply.code(201).send({
     campaign: persistedCampaign,

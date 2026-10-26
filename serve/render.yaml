@@ -26,21 +26,17 @@ services:
       - key: REDIS_URL
         sync: false
       - key: EMAIL_PROVIDER
-        value: gmass
-      - key: GMASS_API_KEY
+        value: mailtrap
+      - key: MAILTRAP_API_KEY
         sync: false
-      - key: GMASS_API_URL
-        value: https://api.gmass.co/v1/send
-      - key: BREVO_API_KEY
+      - key: MAILTRAP_SENDER_EMAIL
         sync: false
-      - key: BREVO_SENDER_EMAIL
-        sync: false
-      - key: BREVO_SENDER_NAME
+      - key: MAILTRAP_SENDER_NAME
         sync: false
       - key: SMS_PROVIDER
-        value: brevo
+        value: none
       - key: SMS_SENDER_ID
-        value: Serve
+        value: ""
       - key: AI_API_KEY
         sync: false
       - key: AI_MODEL
@@ -73,21 +69,17 @@ services:
       - key: REDIS_URL
         sync: false
       - key: EMAIL_PROVIDER
-        value: gmass
-      - key: GMASS_API_KEY
+        value: mailtrap
+      - key: MAILTRAP_API_KEY
         sync: false
-      - key: GMASS_API_URL
-        value: https://api.gmass.co/v1/send
-      - key: BREVO_API_KEY
+      - key: MAILTRAP_SENDER_EMAIL
         sync: false
-      - key: BREVO_SENDER_EMAIL
-        sync: false
-      - key: BREVO_SENDER_NAME
+      - key: MAILTRAP_SENDER_NAME
         sync: false
       - key: SMS_PROVIDER
-        value: brevo
+        value: none
       - key: SMS_SENDER_ID
-        value: Serve
+        value: ""
       - key: AI_API_KEY
         sync: false
       - key: AI_MODEL
@@ -120,21 +112,17 @@ services:
       - key: REDIS_URL
         sync: false
       - key: EMAIL_PROVIDER
-        value: gmass
-      - key: GMASS_API_KEY
+        value: mailtrap
+      - key: MAILTRAP_API_KEY
         sync: false
-      - key: GMASS_API_URL
-        value: https://api.gmass.co/v1/send
-      - key: BREVO_API_KEY
+      - key: MAILTRAP_SENDER_EMAIL
         sync: false
-      - key: BREVO_SENDER_EMAIL
-        sync: false
-      - key: BREVO_SENDER_NAME
+      - key: MAILTRAP_SENDER_NAME
         sync: false
       - key: SMS_PROVIDER
-        value: brevo
+        value: none
       - key: SMS_SENDER_ID
-        value: Serve
+        value: ""
       - key: AI_API_KEY
         sync: false
       - key: AI_MODEL
@@ -167,21 +155,17 @@ services:
       - key: REDIS_URL
         sync: false
       - key: EMAIL_PROVIDER
-        value: gmass
-      - key: GMASS_API_KEY
+        value: mailtrap
+      - key: MAILTRAP_API_KEY
         sync: false
-      - key: GMASS_API_URL
-        value: https://api.gmass.co/v1/send
-      - key: BREVO_API_KEY
+      - key: MAILTRAP_SENDER_EMAIL
         sync: false
-      - key: BREVO_SENDER_EMAIL
-        sync: false
-      - key: BREVO_SENDER_NAME
+      - key: MAILTRAP_SENDER_NAME
         sync: false
       - key: SMS_PROVIDER
-        value: brevo
+        value: none
       - key: SMS_SENDER_ID
-        value: Serve
+        value: ""
       - key: AI_API_KEY
         sync: false
       - key: AI_MODEL
@@ -219,15 +203,17 @@ services:
       - key: REDIS_URL
         sync: false
       - key: EMAIL_PROVIDER
-        value: gmass
-      - key: GMASS_API_KEY
+        value: mailtrap
+      - key: MAILTRAP_API_KEY
         sync: false
-      - key: GMASS_API_URL
-        value: https://api.gmass.co/v1/send
+      - key: MAILTRAP_SENDER_EMAIL
+        sync: false
+      - key: MAILTRAP_SENDER_NAME
+        sync: false
       - key: SMS_PROVIDER
-        value: brevo
+        value: none
       - key: SMS_SENDER_ID
-        value: Serve
+        value: ""
 
  databases:
   - name: serve-db

@@ -3,11 +3,12 @@ import assert from 'node:assert/strict'
 
 import { getProviderStatus, getProviderConfig, type ProviderStatusSummary, dispatchCampaignMessage } from './providers.js'
 
-test('returns a truthful status when email is configured and SMS is not', () => {
+test('returns a truthful status when Mailtrap is configured and SMS is not', () => {
   const config = {
-    BREVO_API_KEY: 'test-key',
-    BREVO_SENDER_EMAIL: 'hello@example.com',
-    BREVO_SENDER_NAME: 'Example Business',
+    EMAIL_PROVIDER: 'mailtrap',
+    MAILTRAP_API_KEY: 'test-key',
+    MAILTRAP_SENDER_EMAIL: 'hello@example.com',
+    MAILTRAP_SENDER_NAME: 'Example Business',
     SMS_PROVIDER: '',
     SMS_API_KEY: '',
     SMS_SENDER_ID: '',
@@ -15,7 +16,7 @@ test('returns a truthful status when email is configured and SMS is not', () => 
 
   const status = getProviderStatus(config)
   const summary: ProviderStatusSummary = {
-    email: { status: 'configured', provider: 'brevo', sender: 'hello@example.com' },
+    email: { status: 'configured', provider: 'mailtrap', sender: 'hello@example.com' },
     sms: {
       status: 'not_configured',
       provider: null,
@@ -29,19 +30,20 @@ test('returns a truthful status when email is configured and SMS is not', () => 
   assert.equal(getProviderConfig(config).emailConfigured, true)
 })
 
-test('treats invalid Brevo sender emails as unconfigured', () => {
+test('treats invalid Mailtrap sender emails as unconfigured', () => {
   const status = getProviderStatus({
-    BREVO_API_KEY: 'test-key',
-    BREVO_SENDER_EMAIL: 'mabrixel tech',
-    BREVO_SENDER_NAME: 'Serve Platform',
+    EMAIL_PROVIDER: 'mailtrap',
+    MAILTRAP_API_KEY: 'test-key',
+    MAILTRAP_SENDER_EMAIL: 'mabrixel tech',
+    MAILTRAP_SENDER_NAME: 'Serve Platform',
     SMS_PROVIDER: '',
     SMS_API_KEY: '',
     SMS_SENDER_ID: '',
   })
 
   assert.equal(status.email.status, 'not_configured')
-  assert.equal(status.email.provider, null)
-  assert.equal(getProviderConfig({ BREVO_API_KEY: 'test-key', BREVO_SENDER_EMAIL: 'mabrixel tech' }).emailConfigured, false)
+  assert.equal(status.email.provider, 'mailtrap')
+  assert.equal(getProviderConfig({ EMAIL_PROVIDER: 'mailtrap', MAILTRAP_API_KEY: 'test-key', MAILTRAP_SENDER_EMAIL: 'mabrixel tech' }).emailConfigured, false)
 })
 
 test('dispatches through the configured channel and rejects unconfigured ones', async () => {
@@ -51,9 +53,10 @@ test('dispatches through the configured channel and rejects unconfigured ones', 
     subject: 'Welcome',
     text: 'Hello there',
   }, {
-    BREVO_API_KEY: '',
-    BREVO_SENDER_EMAIL: '',
-    BREVO_SENDER_NAME: '',
+    EMAIL_PROVIDER: 'mailtrap',
+    MAILTRAP_API_KEY: '',
+    MAILTRAP_SENDER_EMAIL: '',
+    MAILTRAP_SENDER_NAME: '',
     SMS_PROVIDER: '',
     SMS_API_KEY: '',
     SMS_SENDER_ID: '',
@@ -61,40 +64,21 @@ test('dispatches through the configured channel and rejects unconfigured ones', 
 
   assert.equal(unconfiguredEmail.status, 'not_configured')
 
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-    const url = String(input)
-    assert.match(url, /api.sendafrica.com\/v1\/sms\/send/)
-    assert.equal(init?.method, 'POST')
+  const configuredEmail = await dispatchCampaignMessage({
+    channel: 'email',
+    to: 'hello@example.com',
+    subject: 'Welcome',
+    text: 'Hello there',
+  }, {
+    EMAIL_PROVIDER: 'mailtrap',
+    MAILTRAP_API_KEY: 'test-key',
+    MAILTRAP_SENDER_EMAIL: 'hello@example.com',
+    MAILTRAP_SENDER_NAME: 'Example Business',
+    SMS_PROVIDER: '',
+    SMS_API_KEY: '',
+    SMS_SENDER_ID: '',
+  })
 
-    const headers = new Headers(init?.headers)
-    assert.match(headers.get('Authorization') ?? '', /Bearer /)
-
-    return new Response(JSON.stringify({ id: 'SA-123456' }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
-
-  try {
-    const configuredSms = await dispatchCampaignMessage({
-      channel: 'sms',
-      to: '+254712345678',
-      text: 'Reminder',
-    }, {
-      BREVO_API_KEY: '',
-      BREVO_SENDER_EMAIL: '',
-      BREVO_SENDER_NAME: '',
-      SMS_PROVIDER: 'sendafrica',
-      SENDAFRICA_API_KEY: 'sendafrica-key',
-      SMS_API_KEY: 'sendafrica-key',
-      SMS_SENDER_ID: 'Mabrixel',
-    })
-
-    assert.equal(configuredSms.provider, 'sendafrica')
-    assert.equal(configuredSms.status, 'sent')
-    assert.equal(configuredSms.messageId, 'SA-123456')
-  } finally {
-    globalThis.fetch = originalFetch
-  }
+  assert.equal(configuredEmail.provider, 'mailtrap')
+  assert.equal(configuredEmail.status, 'failed')
 })

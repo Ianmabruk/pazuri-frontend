@@ -1,5 +1,6 @@
 export type ProviderConfig = {
-  emailProvider: 'brevo' | 'gmass'
+  emailProvider: 'mailtrap' | 'gmass'
+  mailtrapApiKey: string
   brevoApiKey: string
   gmassApiKey: string
   senderEmail: string
@@ -17,7 +18,7 @@ export type ProviderConfig = {
 export type ProviderStatusSummary = {
   email: {
     status: 'configured' | 'not_configured' | 'unauthorized'
-    provider: 'brevo' | 'gmass' | null
+    provider: 'mailtrap' | 'gmass' | null
     sender: string | null
     message?: string
   }
@@ -39,11 +40,15 @@ function normalizeEmail(value: string): string {
 }
 
 export function getProviderConfig(input: NodeJS.ProcessEnv = process.env): ProviderConfig {
-  const emailProvider = ((input.EMAIL_PROVIDER ?? 'brevo') as string).trim().toLowerCase() === 'gmass' ? 'gmass' : 'brevo'
+  const explicitProvider = ((input.EMAIL_PROVIDER ?? 'mailtrap') as string).trim().toLowerCase()
+  const emailProvider = explicitProvider === 'gmass' ? 'gmass' : 'mailtrap'
+  const mailtrapApiKey = (input.MAILTRAP_API_KEY ?? input.BREVO_API_KEY ?? '').trim()
   const brevoApiKey = (input.BREVO_API_KEY ?? '').trim()
   const gmassApiKey = (input.GMASS_API_KEY ?? '').trim()
-  const senderEmail = normalizeEmail((emailProvider === 'gmass' ? (input.GMASS_SENDER_EMAIL ?? input.BREVO_SENDER_EMAIL ?? '') : (input.BREVO_SENDER_EMAIL ?? '')))
-  const senderName = (input.BREVO_SENDER_NAME ?? '').trim()
+  const senderEmail = normalizeEmail((emailProvider === 'gmass'
+    ? (input.GMASS_SENDER_EMAIL ?? input.BREVO_SENDER_EMAIL ?? input.MAILTRAP_SENDER_EMAIL ?? '')
+    : (input.MAILTRAP_SENDER_EMAIL ?? input.BREVO_SENDER_EMAIL ?? '')))
+  const senderName = (input.MAILTRAP_SENDER_NAME ?? input.GMASS_SENDER_NAME ?? input.BREVO_SENDER_NAME ?? '').trim()
   const smsProvider = (input.SMS_PROVIDER ?? DEFAULT_SMS_PROVIDER).trim().toLowerCase()
   const smsApiKey = (input.SMS_API_KEY ?? '').trim()
   const sendAfricaApiKey = (input.SENDAFRICA_API_KEY ?? '').trim()
@@ -56,6 +61,7 @@ export function getProviderConfig(input: NodeJS.ProcessEnv = process.env): Provi
 
   return {
     emailProvider,
+    mailtrapApiKey,
     brevoApiKey,
     gmassApiKey,
     senderEmail,
@@ -66,7 +72,7 @@ export function getProviderConfig(input: NodeJS.ProcessEnv = process.env): Provi
     smsAccountSid: twilioAccountSid,
     smsAuthToken: twilioAuthToken,
     smsSenderId,
-    emailConfigured: Boolean((emailProvider === 'gmass' ? gmassApiKey : brevoApiKey) && senderEmail),
+    emailConfigured: Boolean(((emailProvider === 'gmass' ? gmassApiKey : mailtrapApiKey) || brevoApiKey) && senderEmail),
     smsConfigured: Boolean(
       smsProvider &&
       smsProvider !== DEFAULT_SMS_PROVIDER &&
@@ -82,6 +88,7 @@ export function getProviderConfig(input: NodeJS.ProcessEnv = process.env): Provi
 
 export function getProviderStatus(input: NodeJS.ProcessEnv = process.env): ProviderStatusSummary {
   const config = getProviderConfig(input)
+  const providerLabel = config.emailProvider === 'gmass' ? 'GMass' : 'Mailtrap'
 
   const email = config.emailConfigured
     ? {
@@ -91,9 +98,9 @@ export function getProviderStatus(input: NodeJS.ProcessEnv = process.env): Provi
       }
     : {
         status: 'not_configured' as const,
-        provider: null,
+        provider: config.emailProvider,
         sender: null,
-        message: 'Your email provider requires a configured API key and authorized sender address.',
+        message: `${providerLabel} email is not configured. Add a valid API key and sender email before sending campaigns.`,
       }
 
   const normalizedSmsProvider = config.smsProvider && config.smsProvider !== DEFAULT_SMS_PROVIDER ? config.smsProvider : null
@@ -125,6 +132,7 @@ export async function checkBrevoHealth(input: NodeJS.ProcessEnv = process.env) {
     return {
       ok: false,
       status: 'not_configured',
+      provider: config.emailProvider,
       message: 'Brevo is not configured.',
     }
   }
@@ -195,6 +203,8 @@ export async function sendBrevoEmail(payload: {
     throw new Error('The configured sender email is invalid. Add a verified sender email before sending email.')
   }
 
+  const sender = payload.sender ?? { email: config.senderEmail, name: config.senderName }
+
   if (config.emailProvider === 'gmass') {
     const gmassUrl = (input.GMASS_API_URL ?? 'https://api.gmass.co/v1/send').trim()
     const gmResponse = await fetch(gmassUrl, {
@@ -230,36 +240,35 @@ export async function sendBrevoEmail(payload: {
     }
   }
 
-  const sender = payload.sender ?? { email: config.senderEmail, name: config.senderName }
-  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+  const response = await fetch('https://send.api.mailtrap.io/api/send', {
     method: 'POST',
     headers: {
-      'api-key': config.brevoApiKey,
+      Authorization: `Bearer ${config.mailtrapApiKey || config.brevoApiKey}`,
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
     body: JSON.stringify({
-      sender,
-      to: payload.to,
+      from: { email: sender.email, name: sender.name || 'Serve Platform' },
+      to: payload.to.map(({ email, name }) => ({ email, name: name || email })),
       subject: payload.subject,
-      htmlContent: payload.htmlContent ?? payload.textContent ?? '',
-      textContent: payload.textContent ?? payload.htmlContent ?? '',
-      ...(payload.templateId ? { templateId: payload.templateId } : {}),
+      html: payload.htmlContent ?? payload.textContent ?? '',
+      text: payload.textContent ?? payload.htmlContent ?? '',
+      category: 'serve-campaign',
     }),
     signal: AbortSignal.timeout(15_000),
   })
 
   const parsed = await response.json().catch(() => ({}))
-  const body = parsed as { message?: string; messageId?: string }
+  const body = parsed as { message?: string; errors?: Array<{ message?: string }>; id?: string }
 
   if (!response.ok) {
-    throw new Error(body.message ?? 'Brevo rejected the outbound email request.')
+    throw new Error(body.message ?? body.errors?.[0]?.message ?? 'Mailtrap rejected the outbound email request.')
   }
 
   return {
     ok: true,
-    provider: 'brevo',
-    messageId: body.messageId ?? null,
+    provider: 'mailtrap',
+    messageId: body.id ?? null,
     response: body,
   }
 }
@@ -431,29 +440,40 @@ export async function dispatchCampaignMessage(
 
   if (payload.channel === 'email') {
     if (!config.emailConfigured) {
+      const providerLabel = config.emailProvider === 'gmass' ? 'GMass' : 'Mailtrap'
       return {
         ok: false,
         channel: 'email',
-        provider: null,
+        provider: config.emailProvider,
         status: 'not_configured',
-        reason: 'Brevo is not configured. Add the API key and sender address before sending email.',
+        reason: `${providerLabel} is not configured. Add the API key and sender address before sending email.`,
       }
     }
 
-    const result = await sendBrevoEmail({
-      to: [{ email: payload.to, name: payload.sender?.name ?? 'Customer' }],
-      subject: payload.subject ?? 'Message from Serve',
-      textContent: payload.text,
-      htmlContent: `<p>${payload.text}</p>`,
-      sender: payload.sender ?? { email: config.senderEmail, name: config.senderName },
-    }, input)
+    try {
+      const result = await sendBrevoEmail({
+        to: [{ email: payload.to, name: payload.sender?.name ?? 'Customer' }],
+        subject: payload.subject ?? 'Message from Serve',
+        textContent: payload.text,
+        htmlContent: `<p>${payload.text}</p>`,
+        sender: payload.sender ?? { email: config.senderEmail, name: config.senderName },
+      }, input)
 
-    return {
-      ok: true,
-      channel: 'email',
-      provider: 'brevo',
-      status: 'sent',
-      messageId: result.messageId ?? null,
+      return {
+        ok: true,
+        channel: 'email',
+        provider: config.emailProvider,
+        status: 'sent',
+        messageId: result.messageId ?? null,
+      }
+    } catch (error) {
+      return {
+        ok: false,
+        channel: 'email',
+        provider: config.emailProvider,
+        status: 'failed',
+        reason: error instanceof Error ? error.message : 'Mailtrap delivery failed.',
+      }
     }
   }
 
