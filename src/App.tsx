@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   ArrowRight,
   ChevronLeft,
@@ -19,7 +19,7 @@ import { FaFacebookF, FaInstagram, FaTiktok } from 'react-icons/fa6'
 import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import './App.css'
 import PazuriBrand from './components/PazuriBrand/PazuriBrand.jsx'
-import { DEMO_FEATURED_PRODUCTS, DEMO_OFFERS } from './storefront/demoCatalog'
+import { DEMO_OFFERS } from './storefront/demoCatalog'
 import {
   apiUrl,
   categorySlugFor,
@@ -39,6 +39,15 @@ import {
 } from './storefront/shared'
 
 const LazyCategoryShopPage = lazy(() => import('./storefront/CategoryShopPage'))
+
+const HERO_IMAGES: HeroContent[] = [
+  { title: 'Sourced from Lake Victoria\'s waters', subtitle: 'FRESH CATCH', image_url: '/images/products/fresh-fish.jpg' },
+  { title: 'Fresh catch delivered every day', subtitle: 'FRESH CATCH', image_url: '/images/categories/combos/family-feast.jpg' },
+  { title: 'Fresh catch delivered every day', subtitle: 'FRESH CATCH', image_url: '/images/categories/kitchen/grilled-tilapia.jpg' },
+  { title: 'Fresh catch delivered every day', subtitle: 'FRESH CATCH', image_url: '/images/categories/drinks/tropical-cooler.jpg' },
+  { title: 'Fresh catch delivered every day', subtitle: 'FRESH CATCH', image_url: '/images/products/fish-cuts.jpg' },
+  { title: 'Fresh catch delivered every day', subtitle: 'FRESH CATCH', image_url: '/images/products/fish-and-chips.jpg' },
+]
 
 const uploadAdminImage = async (file: File) => {
   const token = localStorage.getItem('pazuri-admin-token')
@@ -70,10 +79,9 @@ function StorefrontPage() {
   const [heroIndex, setHeroIndex] = useState(0)
   const [offers, setOffers] = useState<Offer[]>([])
   const [products, setProducts] = useState<Product[]>([])
-  const [heroSlides, setHeroSlides] = useState<HeroContent[]>([defaultHero])
+  const [heroSlides, setHeroSlides] = useState<HeroContent[]>(HERO_IMAGES)
   const [heroSwipeStart, setHeroSwipeStart] = useState<number | null>(null)
   const [homepageCategories, setHomepageCategories] = useState<HomepageCategory[]>(DEFAULT_SHOP_CATEGORIES)
-  const [contentError, setContentError] = useState('')
   const [cart, setCart] = useState<CartItem[]>(() => {
     if (typeof window === 'undefined') return []
 
@@ -90,6 +98,7 @@ function StorefrontPage() {
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
   const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null)
+  const featuredProductsRef = useRef<HTMLDivElement>(null)
 
   const hero = heroSlides[heroIndex] ?? defaultHero
   const resolvedHeroImageUrl = localImage(hero.image_url, defaultHero.image_url)
@@ -110,7 +119,7 @@ function StorefrontPage() {
       if (motionPreference?.matches) return
       sliderTimer = window.setInterval(() => {
         setHeroIndex((current) => (current + 1) % heroSlides.length)
-      }, 2500)
+      }, 2000)
     }
     updateTimer()
     motionPreference?.addEventListener('change', updateTimer)
@@ -134,15 +143,12 @@ function StorefrontPage() {
         fetchApiJson<{ offers?: Offer[] }>('offers'),
         fetchApiJson<{ categories?: HomepageCategory[] }>('categories/homepage'),
       ])
-      const errors: string[] = []
-
       const [productsResult, heroResult, offersResult, categoriesResult] = results
       if (productsResult.status === 'fulfilled') {
         setProducts(Array.isArray(productsResult.value.products) ? productsResult.value.products : [])
       } else {
         console.error('Unable to load storefront products.', productsResult.reason)
         setProducts([])
-        errors.push('products')
       }
 
       if (heroResult.status === 'fulfilled') {
@@ -151,11 +157,11 @@ function StorefrontPage() {
           : heroResult.value.hero
             ? [heroResult.value.hero]
             : []
-        setHeroSlides(slides.filter((slide) => slide && slide.image_url).length ? slides.filter((slide) => slide && slide.image_url) : [defaultHero])
+        const returnedSlides = slides.filter((slide) => slide && slide.image_url)
+        setHeroSlides(returnedSlides.length ? HERO_IMAGES : HERO_IMAGES)
       } else {
         console.error('Unable to load homepage hero content.', heroResult.reason)
-        setHeroSlides([defaultHero])
-        errors.push('hero content')
+        setHeroSlides(HERO_IMAGES)
       }
 
       if (offersResult.status === 'fulfilled') {
@@ -166,7 +172,6 @@ function StorefrontPage() {
       } else {
         console.error('Unable to load active offers.', offersResult.reason)
         setOffers([])
-        errors.push('offers')
       }
 
       if (categoriesResult.status === 'fulfilled') {
@@ -175,10 +180,7 @@ function StorefrontPage() {
       } else {
         console.error('Unable to load homepage categories.', categoriesResult.reason)
         setHomepageCategories(DEFAULT_SHOP_CATEGORIES)
-        errors.push('categories')
       }
-
-      setContentError(errors.length ? `Some store information could not be loaded (${errors.join(', ')}).` : '')
     }
 
     void loadContent()
@@ -202,19 +204,14 @@ function StorefrontPage() {
 
   const featuredProducts = useMemo(() => {
     const featuredOrder = ['fresh whole tilapia', 'fresh nile perch', 'tilapia fillet', 'family fish combo']
-    const liveProducts = products
-      .filter((product) => product.is_available !== false && Number(product.stock_quantity ?? 0) > 0)
+    return products
+      .filter((product) => !product.demo_only && product.is_available !== false && Number(product.stock_quantity ?? 0) > 0)
       .sort((left, right) => {
         const leftIndex = featuredOrder.indexOf(left.name.toLowerCase())
         const rightIndex = featuredOrder.indexOf(right.name.toLowerCase())
         return (leftIndex < 0 ? featuredOrder.length : leftIndex) - (rightIndex < 0 ? featuredOrder.length : rightIndex)
       })
       .slice(0, 4)
-    const liveNames = new Set(liveProducts.map((product) => product.name.toLowerCase()))
-    const demos = DEMO_FEATURED_PRODUCTS
-      .filter((product) => !liveNames.has(product.name.toLowerCase()))
-      .slice(0, Math.max(0, 4 - liveProducts.length))
-    return [...liveProducts, ...demos]
   }, [products])
 
   const visibleProducts = useMemo(() => {
@@ -226,6 +223,27 @@ function StorefrontPage() {
       return matchesCategory && matchesQuery
     })
   }, [featuredProducts, products, query, selectedCategory, showAllProducts])
+
+  useEffect(() => {
+    const cards = featuredProductsRef.current?.querySelectorAll<HTMLElement>('.featured-product-row')
+    if (!cards) return
+
+    if (typeof IntersectionObserver === 'undefined') {
+      cards.forEach((card) => card.classList.add('is-visible'))
+      return
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return
+        entry.target.classList.add('is-visible')
+        observer.unobserve(entry.target)
+      })
+    }, { threshold: 0.12 })
+    cards.forEach((card) => observer.observe(card))
+
+    return () => observer.disconnect()
+  }, [visibleProducts])
 
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + Number(item.price ?? item.selling_price ?? 0) * item.quantity, 0), [cart])
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0)
@@ -346,7 +364,6 @@ function StorefrontPage() {
       </header>
 
       <main>
-        {contentError ? <p className="storefront-error" role="status">{contentError}</p> : null}
         <section className="hero-section freshco-hero" onTouchStart={(event) => setHeroSwipeStart(event.touches[0]?.clientX ?? null)} onTouchEnd={(event) => {
           if (heroSwipeStart === null) return
           const end = event.changedTouches[0]?.clientX ?? heroSwipeStart
@@ -355,21 +372,30 @@ function StorefrontPage() {
           setHeroSwipeStart(null)
         }}>
           <div className="hero-copy freshco-hero-copy">
-            <p className="eyebrow">Sourced from Lake Victoria.</p>
-            <h1>Fresh Catch Delivered Every Day</h1>
-            {hero.description ? <p className="hero-description">{hero.description}</p> : null}
-            <a className="hero-shop-link" href={hero.cta_url || '#shop'}>{hero.cta_label || 'Shop Fresh Fish'} <ArrowRight size={15} /></a>
+            <p className="hero-animated-line hero-line-one">
+              {'Sourced from Lake Victoria\'s waters'.split(' ').map((word, index) => (
+                <span key={`${word}-${index}`} style={{ animationDelay: `${index * 90}ms` }}>{word}</span>
+              ))}
+            </p>
+            <h1 className="hero-animated-line hero-line-two">
+              {'Fresh catch delivered every day'.split(' ').map((word, index) => (
+                <span key={`${word}-${index}`} style={{ animationDelay: `${700 + index * 90}ms` }}>{word}</span>
+              ))}
+            </h1>
           </div>
-          <div className="freshco-hero-image">
-            <StorefrontImage
-              key={hero.image_url}
-              source={heroImageUrl}
-              alt="Fresh seafood from Pazuri Fish"
-              fallback={defaultHero.image_url}
-              loading="eager"
-              fetchPriority="high"
-              sizes="(max-width: 760px) calc(100vw - 24px), (max-width: 980px) 55vw, 52vw"
-            />
+          <div className="freshco-hero-images" aria-label="Pazuri Fish hero slideshow">
+            {heroSlides.length === 6 ? heroSlides.map((slide, index) => (
+              <StorefrontImage
+                key={`${slide.image_url}-${index}`}
+                className={index === heroIndex ? 'hero-slide active' : 'hero-slide'}
+                source={localImage(slide.image_url, '/images/hero-seafood.png')}
+                alt={index === heroIndex ? 'Fresh seafood from Pazuri Fish' : ''}
+                fallback="/images/hero-seafood.png"
+                loading={index === 0 ? 'eager' : 'lazy'}
+                fetchPriority={index === 0 ? 'high' : 'auto'}
+                sizes="100vw"
+              />
+            )) : null}
           </div>
           <div className="hero-dots" aria-label="Hero slide indicators">
             {heroSlides.map((slide, index) => (
@@ -464,57 +490,71 @@ function StorefrontPage() {
           {visibleProducts.length === 0 ? (
             <div className="empty-state"><p>No products match your search just yet.</p><button type="button" className="brand-action-button" onClick={() => { setQuery(''); setShowAllProducts(false) }}>Clear Search</button></div>
           ) : (
-            <div className="featured-grid">
-              {visibleProducts.map((product) => (
-                <article key={product.id} className="freshco-product-card">
+            <div className="featured-grid featured-product-list" ref={featuredProductsRef}>
+              {visibleProducts.map((product) => {
+                const productOffer = liveOfferCards.find((offer) => offer.product.id === product.id)
+                const currentPrice = Number(product.price ?? product.selling_price ?? 0)
+                const originalPrice = Number(productOffer?.original_price ?? 0)
+                const discount = originalPrice > currentPrice
+                  ? Math.round((1 - currentPrice / originalPrice) * 100)
+                  : 0
+
+                return (
+                <article key={product.id} className="freshco-product-card featured-product-row">
                   <div className="availability-row"><span>{product.demo_only ? 'Demo Preview' : Number(product.stock_quantity ?? 0) > 0 ? 'In Stock' : 'Out of Stock'}</span></div>
-                  {product.demo_only ? (
-                    <div className="product-image-button product-image-static">
-                      <StorefrontImage source={product.image_url || product.image} alt={product.name} fallback={defaultHero.image_url} sizes="(max-width: 760px) 72vw, (max-width: 980px) 30vw, 25vw" />
-                    </div>
-                  ) : (
-                    <button type="button" className="product-image-button" onClick={() => navigate(`/products/${product.id}`)}>
-                      <StorefrontImage source={product.image_url || product.image} alt={product.name} fallback={defaultHero.image_url} sizes="(max-width: 760px) 72vw, (max-width: 980px) 30vw, 25vw" />
-                    </button>
-                  )}
+                  <button type="button" className="product-image-button" onClick={() => navigate(`/products/${product.id}`)} aria-label={`View ${product.name}`}>
+                    <StorefrontImage source={product.image_url || product.image} alt={product.name} fallback={defaultHero.image_url} sizes="(max-width: 760px) 38vw, 44vw" />
+                  </button>
                   <div className="freshco-product-info">
-                    <h3>{product.name}</h3><p>{product.unit}</p>
-                    {product.demo_only ? <p className="demo-product-note">Demonstration item · not in the live catalog</p> : null}
-                    <div className="price-row"><strong>{formatKsh(Number(product.price ?? product.selling_price ?? 0))}</strong></div>
-                    <button type="button" className="add-cart-button" onClick={() => addToCart(product)} disabled={product.is_available === false || Number(product.stock_quantity ?? 0) <= 0}>{recentlyAddedId === product.id ? 'Added to Basket' : 'Add to Cart'} <ShoppingBasket size={15} /></button>
+                    <h3>{product.name}</h3>
+                    <p className="shop-product-description">{product.description}</p>
+                    <p className="featured-product-unit">{product.unit}</p>
+                    <div className="price-row">
+                      <strong>{formatKsh(currentPrice)}</strong>
+                      {originalPrice > currentPrice ? <del>{formatKsh(originalPrice)}</del> : null}
+                      {discount > 0 ? <span className="promotion-discount">{discount}% off</span> : null}
+                    </div>
+                    <div className="product-card-actions">
+                      <button type="button" className="view-product-button" onClick={() => navigate(`/products/${product.id}`)}>View Product</button>
+                      <button type="button" className="add-cart-button" onClick={() => addToCart(product)} disabled={product.is_available === false || Number(product.stock_quantity ?? 0) <= 0}>{recentlyAddedId === product.id ? 'Added to Basket' : 'Add to Cart'} <ShoppingBasket size={15} /></button>
+                    </div>
                   </div>
                 </article>
-              ))}
+                )
+              })}
             </div>
           )}
         </section>
 
         <section className="deals-section">
           <div className="section-heading featured-heading">
-            <div><p className="section-kicker">LIMITED-TIME PRICES</p><h2>Deals of the Week</h2></div>
+            <div><h2>Deals of the Week</h2></div>
           </div>
-          {(() => {
-            const combo = products.find((product) => !product.demo_only && product.name.toLowerCase().includes('family fish combo'))
-            const comboOffer = liveOfferCards.find((offer) => offer.product.id === combo?.id)
-            const regularPrice = Number(comboOffer?.original_price ?? combo?.selling_price ?? combo?.price ?? 0)
-            const discountedPrice = Number(comboOffer?.promo_price ?? 0)
-            const hasDiscount = Boolean(comboOffer && discountedPrice > 0 && regularPrice > discountedPrice)
-            const discount = hasDiscount ? Number(comboOffer?.discount_value ?? Math.round((1 - discountedPrice / regularPrice) * 100)) : 0
-            return combo ? (
-              <article className="deal-feature-card">
-                <div className="deal-feature-image">
-                  <StorefrontImage source={combo.image_url || combo.image} alt={combo.name} fallback="/images/products/family-combo.jpg" sizes="(max-width: 760px) 92vw, 48vw" />
-                </div>
-                <div className="deal-feature-copy">
-                  {hasDiscount ? <span className="deal-badge">SAVE {discount}%</span> : null}
-                  <p className="section-kicker">FAMILY FAVOURITE</p>
-                  <h3>{combo.name}</h3><p>{combo.description}</p>
-                  <div className="deal-feature-price"><strong>{formatKsh(hasDiscount ? discountedPrice : regularPrice)}</strong>{hasDiscount ? <span>{formatKsh(regularPrice)}</span> : null}</div>
-                  <button type="button" className="add-cart-button" onClick={() => addToCart(combo)} disabled={combo.is_available === false || Number(combo.stock_quantity ?? 0) <= 0}>{recentlyAddedId === combo.id ? 'Added to Basket' : 'Add to Cart'} <ShoppingBasket size={16} /></button>
-                </div>
-              </article>
-            ) : <p className="empty-state">No weekly deal is available right now. See the offers above for current promotions.</p>
-          })()}
+          <div className="weekly-deals-grid">
+            {offerCards.slice(0, 3).map((deal, index) => {
+              const product = deal.product
+              const promoPrice = Number(deal.promo_price ?? 0)
+              const originalPrice = Number(deal.original_price ?? product.price ?? product.selling_price ?? 0)
+              const discount = originalPrice > promoPrice && promoPrice > 0
+                ? Math.round((1 - promoPrice / originalPrice) * 100)
+                : Number(deal.discount_value ?? 0)
+              return (
+                <article className="weekly-deal-card" key={`${deal.id}-${index}`}>
+                  <StorefrontImage source={deal.image_url || product.image_url || product.image} alt={deal.title || product.name} fallback="/images/products/family-combo.jpg" sizes="(max-width: 760px) 92vw, 33vw" />
+                  <div className="weekly-deal-copy">
+                    {discount > 0 ? <span className="deal-badge">SAVE {discount}%</span> : null}
+                    <h3>{deal.title || product.name}</h3>
+                    <p>{deal.description || product.description}</p>
+                    <div className="deal-feature-price"><strong>{formatKsh(promoPrice || originalPrice)}</strong>{promoPrice > 0 && originalPrice > promoPrice ? <span>{formatKsh(originalPrice)}</span> : null}</div>
+                    <div className="deal-card-actions">
+                      <button type="button" className="view-product-button" onClick={() => product.id > 0 ? navigate(`/products/${product.id}`) : navigate('/shop/combos')}>View Deal</button>
+                      <button type="button" className="add-cart-button" onClick={() => addToCart({ ...product, price: promoPrice || originalPrice, selling_price: promoPrice || originalPrice })}>Add to Cart</button>
+                    </div>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
         </section>
 
         <section className="bottom-promo">
@@ -1173,6 +1213,8 @@ function ProductDetailPage() {
   const navigate = useNavigate()
   const [product, setProduct] = useState<Product | null>(null)
   const [error, setError] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [detailQuantity, setDetailQuantity] = useState(1)
 
   useEffect(() => {
     const load = async () => {
@@ -1209,17 +1251,38 @@ function ProductDetailPage() {
   if (!product) return <div className="product-detail-page"><p className="product-detail-empty">Loading product…</p></div>
 
   const addProductToBasket = () => {
-    if (product.is_available === false || Number(product.stock_quantity ?? 0) <= 0) return
-    const cart = JSON.parse(localStorage.getItem('pazuri-cart-v1') || '[]') as CartItem[]
+    setActionError('')
+    if (product.is_available === false || Number(product.stock_quantity ?? 0) <= 0) {
+      setActionError(`${product.name} is currently unavailable.`)
+      return false
+    }
+    let cart: CartItem[]
+    try {
+      const savedCart: unknown = JSON.parse(localStorage.getItem('pazuri-cart-v1') || '[]')
+      if (!Array.isArray(savedCart)) throw new Error('Saved basket is not a list.')
+      cart = savedCart as CartItem[]
+    } catch (loadError) {
+      console.error('Unable to update the saved basket.', loadError)
+      setActionError('Unable to update your basket. Please refresh and try again.')
+      return false
+    }
     const existing = cart.find((entry) => entry.id === product.id)
     if (existing) {
-      if (Number(product.stock_quantity ?? 0) > 0 && existing.quantity >= Number(product.stock_quantity)) return
-      existing.quantity += 1
+      const available = Number(product.stock_quantity ?? 0)
+      if (available > 0 && existing.quantity + detailQuantity > available) {
+        setActionError(`Only ${available} units of ${product.name} are available.`)
+        return false
+      }
+      existing.quantity += detailQuantity
     } else {
-      cart.push({ ...product, quantity: 1, price: Number(product.price ?? product.selling_price ?? 0), image: localImage(product.image_url || product.image) })
+      cart.push({ ...product, quantity: detailQuantity, price: Number(product.price ?? product.selling_price ?? 0), image: localImage(product.image_url || product.image) })
     }
     localStorage.setItem('pazuri-cart-v1', JSON.stringify(cart))
-    navigate('/#basket')
+    return true
+  }
+
+  const buyProductNow = () => {
+    if (addProductToBasket()) navigate('/#checkout')
   }
 
   return (
@@ -1234,7 +1297,16 @@ function ProductDetailPage() {
           <p className="product-detail-description">{product.description}</p>
           <div className="detail-specs"><h3>Specifications</h3><p>{product.specifications || 'Freshly sourced daily for quality and consistency.'}</p></div>
           <div className="detail-meta"><span>Availability: {product.is_available ? 'Available' : 'Unavailable'}</span><span>Stock: {product.stock_quantity ?? 0}</span></div>
-          <button type="button" className="primary-button" onClick={addProductToBasket} disabled={product.is_available === false || Number(product.stock_quantity ?? 0) <= 0}>{product.is_available === false || Number(product.stock_quantity ?? 0) <= 0 ? 'Currently unavailable' : 'Add to basket'}</button>
+          <div className="detail-quantity" aria-label="Product quantity">
+            <button type="button" onClick={() => setDetailQuantity((quantity) => Math.max(1, quantity - 1))} aria-label="Decrease quantity">-</button>
+            <span>{detailQuantity}</span>
+            <button type="button" onClick={() => setDetailQuantity((quantity) => Math.min(Number(product.stock_quantity ?? 99), quantity + 1))} aria-label="Increase quantity">+</button>
+          </div>
+          <div className="detail-actions">
+            <button type="button" className="primary-button" onClick={addProductToBasket} disabled={product.is_available === false || Number(product.stock_quantity ?? 0) <= 0}>Add to Cart</button>
+            <button type="button" className="buy-now-button" onClick={buyProductNow} disabled={product.is_available === false || Number(product.stock_quantity ?? 0) <= 0}>Buy Now</button>
+          </div>
+          {actionError ? <p className="product-action-error" role="alert">{actionError}</p> : null}
         </div>
       </main>
     </div>
