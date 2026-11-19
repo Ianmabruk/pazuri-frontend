@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta
 
 from flask import Flask, jsonify
 from flask_cors import CORS
@@ -209,40 +210,59 @@ def create_app():
             ]
             db.session.add_all(default_products)
 
-        demo_products = [
-            ('DEMO-COMBO-01', 'Family Seafood Feast', 'Combos', 'A shareable seafood selection with fresh fish and sides.', 3200, 'per combo', '/images/products/family-combo.jpg'),
-            ('DEMO-COMBO-02', 'Tilapia and Perch Duo', 'Combos', 'A sample pairing of fresh tilapia and Nile perch.', 2800, 'per combo', '/images/products/nile-perch.jpg'),
-            ('DEMO-COMBO-03', 'Grill Night Seafood Box', 'Combos', 'A mix of grill-ready seafood portions for a family meal.', 3500, 'per box', '/images/hero-seafood.png'),
-            ('DEMO-COMBO-04', 'Fish Supper Bundle', 'Combos', 'Fresh fish portions paired with a classic side.', 1950, 'per combo', '/images/products/fish-and-chips.jpg'),
-            ('DEMO-COMBO-05', 'Lake Catch Sharing Pack', 'Combos', 'A sample selection of Lake Victoria fish cuts to share.', 2600, 'per pack', '/images/products/fish-cuts.jpg'),
-            ('DEMO-COMBO-06', 'Weekend Seafood Mix', 'Combos', 'A varied seafood selection prepared for weekend cooking.', 3000, 'per combo', '/images/products/fresh-fish.jpg'),
-            ('DEMO-KITCHEN-01', 'Grilled Tilapia Meal', 'Kitchen', 'A freshly grilled tilapia meal, served with a choice of sides.', 1450, 'per serving', '/images/products/kitchen-meal.jpg'),
-            ('DEMO-KITCHEN-02', 'Fish and Chips', 'Kitchen', 'Crisp golden chips served with freshly prepared fish.', 1050, 'per serving', '/images/products/fish-and-chips.jpg'),
-            ('DEMO-KITCHEN-03', 'Pan-Seared Nile Perch', 'Kitchen', 'Tender Nile perch, pan-seared and served ready to enjoy.', 1650, 'per serving', '/images/products/nile-perch.jpg'),
-            ('DEMO-KITCHEN-04', 'Crispy Fish Fillet Plate', 'Kitchen', 'A golden fish fillet plate prepared fresh to order.', 1250, 'per serving', '/images/products/fish-cuts.jpg'),
-            ('DEMO-KITCHEN-05', 'Seafood Rice Bowl', 'Kitchen', 'A hearty seafood bowl with seasoned rice and fresh vegetables.', 1350, 'per serving', '/images/hero-seafood.png'),
-            ('DEMO-KITCHEN-06', 'Family Fish Platter', 'Kitchen', 'A prepared fish platter designed for sharing.', 2400, 'per platter', '/images/products/family-combo.jpg'),
-            ('DEMO-DRINK-01', 'Tropical Fruit Cooler', 'Drinks', 'A chilled fruit cooler with a bright, tropical finish.', 280, 'per bottle', 'https://images.unsplash.com/photo-1470337458703-46ad1756a187?auto=format&fit=crop&w=900&q=80'),
-            ('DEMO-DRINK-02', 'Orange Sunrise Juice', 'Drinks', 'A bright orange juice served chilled.', 300, 'per bottle', 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?auto=format&fit=crop&w=900&q=80'),
-            ('DEMO-DRINK-03', 'Iced Hibiscus Cooler', 'Drinks', 'A refreshing hibiscus cooler with a hint of citrus.', 280, 'per glass', 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=900&q=80'),
-            ('DEMO-DRINK-04', 'Tropical Smoothie', 'Drinks', 'A smooth tropical fruit blend, served cold.', 350, 'per bottle', 'https://images.unsplash.com/photo-1553530666-ba11a7da3888?auto=format&fit=crop&w=900&q=80'),
-            ('DEMO-DRINK-05', 'Lemon Mint Cooler', 'Drinks', 'A cool lemon and mint drink for a refreshing pairing.', 280, 'per glass', 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=900&q=80'),
-            ('DEMO-DRINK-06', 'Passion Fruit Juice', 'Drinks', 'A chilled passion fruit juice with a tangy finish.', 300, 'per bottle', 'https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=900&q=80'),
+        category_products = [
+            ('PF-FISH-01', 'Fresh Whole Tilapia', 'Fish Butchery', 'Whole Lake Victoria tilapia, cleaned and prepared to order.', 760, 'per kg', '/images/categories/fish-butchery/tilapia.jpg'),
+            ('PF-FISH-02', 'Fresh Nile Perch Fillet', 'Fish Butchery', 'Boneless Nile perch fillet, portioned for easy cooking.', 1250, 'per kg', '/images/categories/fish-butchery/nile-perch.jpg'),
+            ('PF-FISH-03', 'Fresh Fish Cuts', 'Fish Butchery', 'A selection of fresh fish cuts, ready for your preferred recipe.', 850, 'per kg', '/images/categories/fish-butchery/fish-cuts.jpg'),
+            ('PF-COMBO-01', 'Family Seafood Feast', 'Combos', 'A shareable seafood selection with fresh fish and sides.', 3200, 'per combo', '/images/categories/combos/family-feast.jpg'),
+            ('PF-COMBO-02', 'Tilapia and Perch Duo', 'Combos', 'A fresh pairing of tilapia and Nile perch for the table.', 2800, 'per combo', '/images/categories/combos/grill-box.jpg'),
+            ('PF-COMBO-03', 'Grill Night Seafood Box', 'Combos', 'A mix of grill-ready seafood portions for a family meal.', 3500, 'per box', '/images/categories/combos/supper-bundle.jpg'),
+            ('PF-COMBO-04', 'Fish Supper Bundle', 'Combos', 'Fresh fish portions paired with a classic side.', 1950, 'per combo', '/images/products/fish-and-chips.jpg'),
+            ('PF-COMBO-05', 'Lake Catch Sharing Pack', 'Combos', 'A selection of Lake Victoria fish cuts to share.', 2600, 'per pack', '/images/products/family-combo.jpg'),
+            ('PF-COMBO-06', 'Weekend Seafood Mix', 'Combos', 'A varied seafood selection prepared for weekend cooking.', 3000, 'per combo', '/images/products/fresh-fish.jpg'),
+            ('PF-KITCHEN-01', 'Grilled Tilapia Meal', 'Kitchen', 'A freshly grilled tilapia meal, served with a choice of sides.', 1450, 'per serving', '/images/categories/kitchen/grilled-tilapia.jpg'),
+            ('PF-KITCHEN-02', 'Fish and Chips', 'Kitchen', 'Crisp golden chips served with freshly prepared fish.', 1050, 'per serving', '/images/categories/kitchen/fish-and-chips.jpg'),
+            ('PF-KITCHEN-03', 'Pan-Seared Nile Perch', 'Kitchen', 'Tender Nile perch, pan-seared and served ready to enjoy.', 1650, 'per serving', '/images/categories/kitchen/pan-seared-perch.jpg'),
+            ('PF-KITCHEN-04', 'Crispy Fish Fillet Plate', 'Kitchen', 'A golden fish fillet plate prepared fresh to order.', 1250, 'per serving', '/images/products/fish-cuts.jpg'),
+            ('PF-KITCHEN-05', 'Seafood Rice Bowl', 'Kitchen', 'A hearty seafood bowl with seasoned rice and fresh vegetables.', 1350, 'per serving', '/images/products/kitchen-meal.jpg'),
+            ('PF-KITCHEN-06', 'Family Fish Platter', 'Kitchen', 'A prepared fish platter designed for sharing.', 2400, 'per platter', '/images/products/family-combo.jpg'),
+            ('PF-DRINK-01', 'Tropical Fruit Cooler', 'Drinks', 'A chilled fruit cooler with a bright, tropical finish.', 280, 'per bottle', '/images/categories/drinks/tropical-cooler.jpg'),
+            ('PF-DRINK-02', 'Orange Sunrise Juice', 'Drinks', 'A bright orange juice served chilled.', 300, 'per bottle', '/images/categories/drinks/orange-juice.jpg'),
+            ('PF-DRINK-03', 'Iced Hibiscus Cooler', 'Drinks', 'A refreshing hibiscus cooler with a hint of citrus.', 280, 'per glass', '/images/categories/drinks/hibiscus-cooler.jpg'),
+            ('PF-DRINK-04', 'Tropical Smoothie', 'Drinks', 'A smooth tropical fruit blend, served cold.', 350, 'per bottle', '/images/categories/drinks/tropical-smoothie.jpg'),
+            ('PF-DRINK-05', 'Lemon Mint Cooler', 'Drinks', 'A cool lemon and mint drink for a refreshing pairing.', 280, 'per glass', '/images/categories/drinks/lemon-mint.jpg'),
+            ('PF-DRINK-06', 'Passion Fruit Juice', 'Drinks', 'A chilled passion fruit juice with a tangy finish.', 300, 'per bottle', '/images/categories/drinks/passion-fruit.jpg'),
         ]
-        existing_demo_skus = {
-            sku for (sku,) in Product.query.with_entities(Product.sku).filter(
-                Product.sku.in_([product[0] for product in demo_products])
-            ).all()
-        }
-        for category in ('Combos', 'Kitchen', 'Drinks'):
-            for sku, name, product_category, description, price, unit, image_url in demo_products:
-                if product_category != category or sku in existing_demo_skus:
+        seeded_products_by_sku = {sku: details for sku, *details in category_products}
+        legacy_skus = [sku.replace('PF-', 'DEMO-', 1) for sku, *_ in category_products]
+        legacy_products = Product.query.filter(Product.sku.in_(legacy_skus)).all()
+        existing_skus = {sku for (sku,) in Product.query.with_entities(Product.sku).all()}
+        for product in legacy_products:
+            category_sku = product.sku.replace('DEMO-', 'PF-', 1)
+            if category_sku in existing_skus:
+                product.is_available = False
+                product.stock_quantity = 0
+                continue
+            product.sku = category_sku
+            product.description = seeded_products_by_sku[category_sku][2]
+            product.specifications = 'Prepared and packed for customer orders.'
+            existing_skus.add(category_sku)
+
+        db.session.flush()
+        for category in ('Fish Butchery', 'Combos', 'Kitchen', 'Drinks'):
+            category_stock = Product.query.filter(
+                db.func.lower(Product.category) == category.lower(),
+                Product.is_available.is_(True),
+                Product.stock_quantity > 0,
+            ).count()
+            for sku, name, product_category, description, price, unit, image_url in category_products:
+                if product_category != category or category_stock >= 3 or sku in existing_skus:
                     continue
                 db.session.add(Product(
                     sku=sku,
                     name=name,
-                    description=f'Demonstration sample. {description}',
-                    specifications='Sample catalog item; replace with verified business inventory.',
+                    description=description,
+                    specifications='Prepared and packed for customer orders.',
                     category=product_category,
                     selling_price=price,
                     unit=unit,
@@ -251,7 +271,8 @@ def create_app():
                     minimum_stock=2,
                     is_available=True,
                 ))
-                existing_demo_skus.add(sku)
+                existing_skus.add(sku)
+                category_stock += 1
 
         if AdminUser.query.filter_by(email='admin@pazurifish.local').first() is None:
             db.session.add(AdminUser(
@@ -323,6 +344,34 @@ def create_app():
                     is_published=True,
                 ),
             ])
+
+        active_deals = [
+            ('Fresh Tilapia Special', 'A fresh lake tilapia special for everyday family meals.', 'Fish Butchery', 850, 760, '/images/products/fresh-fish.jpg'),
+            ('Family Seafood Combo', 'A generous seafood combo prepared for sharing.', 'Combos', 2400, 2100, '/images/categories/combos/family-feast.jpg'),
+            ('Seafood Kitchen Meal Deal', 'A satisfying prepared seafood meal with a choice of sides.', 'Kitchen', 1450, 1250, '/images/categories/kitchen/grilled-tilapia.jpg'),
+        ]
+        deal_now = datetime.utcnow()
+        deal_expiry = deal_now + timedelta(days=30)
+        for deal_index, (title, description, category_name, original_price, promo_price, image_url) in enumerate(active_deals):
+            if Offer.query.filter_by(title=title).first():
+                continue
+            product = Product.query.filter(db.func.lower(Product.category) == category_name.lower()).first()
+            db.session.add(Offer(
+                product_id=product.id if product else None,
+                title=title,
+                description=description,
+                image_url=image_url,
+                badge=f'DEAL {deal_index + 1}',
+                discount_type='percentage',
+                discount_value=round((1 - promo_price / original_price) * 100),
+                original_price=original_price,
+                promo_price=promo_price,
+                start_date=deal_now,
+                expiry_date=deal_expiry,
+                cta_label='View Deal',
+                cta_url='#deals',
+                is_published=True,
+            ))
 
         if Category.query.count() == 0:
             default_categories = [
