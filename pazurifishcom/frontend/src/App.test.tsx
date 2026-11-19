@@ -1,14 +1,58 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { vi } from 'vitest'
 import App from './App'
 
 describe('Pazuri Fish storefront', () => {
-  it('renders the main homepage sections', () => {
+  beforeEach(() => {
+    window.history.pushState({}, '', '/')
+    localStorage.clear()
+    const products = [{ id: 1, name: 'Fresh Whole Tilapia', description: 'Fresh lake tilapia', category: 'Fish Butchery', price: 850, unit: 'per kg', stock_quantity: 20, image_url: '' }]
+    const offers = [{ id: 1, product_id: 1, product_name: 'Fresh Whole Tilapia', title: 'Fresh Tilapia Special', description: 'Special prices on selected fresh tilapia.', image_url: '', promo_price: 760, original_price: 850, is_published: true }]
+    const categories = [{ id: 1, name: 'Fish Butchery', image_url: '', display_order: 0, is_active: true, show_on_homepage: true }]
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/products/')) return { ok: true, json: async () => ({ product: products[0] }) } as Response
+      if (url.includes('/products')) return { ok: true, json: async () => ({ products }) } as Response
+      if (url.includes('/offers')) return { ok: true, json: async () => ({ offers }) } as Response
+      if (url.includes('/content/hero')) return { ok: true, json: async () => ({ hero: null, slides: [] }) } as Response
+      if (url.includes('/categories')) return { ok: true, json: async () => ({ categories }) } as Response
+      if (url.includes('/orders')) return { ok: true, json: async () => ({ order: { order_number: 'PF-TEST-1' } }) } as Response
+      return { ok: true, json: async () => ({}) } as Response
+    }))
+  })
+
+  it('renders homepage sections in the requested order without testimonials', () => {
     render(<App />)
 
-    expect(screen.getByText('FRESH CATCH, DELIVERED EVERY DAY.')).toBeInTheDocument()
-    expect(screen.getByText('Shop our fresh fish')).toBeInTheDocument()
-    expect(screen.getByText('Fresh Delivery Everyday.')).toBeInTheDocument()
+    expect(screen.getByText('Fresh Catch Delivered Every Day')).toBeInTheDocument()
+    expect(screen.getByAltText('Fresh seafood from Pazuri Fish')).toHaveAttribute('src', '/images/hero-seafood.png')
+    for (const category of ['Fish Butchery', 'Combos', 'Kitchen', 'Drinks']) {
+      expect(screen.getByRole('button', { name: category })).toBeInTheDocument()
+    }
+    expect(screen.getAllByText('All Products').length).toBeGreaterThan(0)
+    expect(screen.getByRole('link', { name: 'TikTok' })).toHaveAttribute('href', 'https://www.tiktok.com')
+    expect(screen.getByRole('link', { name: 'Facebook' })).toHaveAttribute('href', 'https://www.facebook.com')
+    expect(screen.getByRole('link', { name: 'Instagram' })).toHaveAttribute('href', 'https://www.instagram.com')
+    expect(screen.getByText('FRESH DELIVERY EVERYDAY')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: /customer testimonials/i })).not.toBeInTheDocument()
+    const mainSections = Array.from(document.querySelectorAll('main > section'))
+    expect(mainSections.map((section) => section.textContent)).toEqual(expect.arrayContaining([
+      expect.stringContaining('Shop by Category'),
+      expect.stringContaining('Offers'),
+      expect.stringContaining('Featured Products'),
+      expect.stringContaining('Deals of the Week'),
+      expect.stringContaining('FRESH DELIVERY EVERYDAY'),
+    ]))
+    expect(mainSections.map((section) => section.className)).toEqual([
+      'hero-section freshco-hero',
+      'category-section',
+      'promotion-cards',
+      'featured-section',
+      'deals-section',
+      'bottom-promo',
+    ])
+    expect(screen.queryByText(/bulk orders|Bulk Orders/i)).not.toBeInTheDocument()
   })
 
   it('filters products by search input', async () => {
@@ -18,18 +62,107 @@ describe('Pazuri Fish storefront', () => {
     const searchInput = screen.getByPlaceholderText('Search products')
     await user.type(searchInput, 'tilapia')
 
-    expect(screen.getByText('Fresh Whole Tilapia')).toBeInTheDocument()
+    expect(screen.getAllByText('Fresh Whole Tilapia').length).toBeGreaterThan(0)
+  })
+
+  it('adds the linked promotional product to the basket', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    const offerButtons = await screen.findAllByRole('button', { name: /add to cart/i })
+    await user.click(offerButtons[0])
+
+    expect(screen.getByText('Your basket')).toBeInTheDocument()
+    expect(screen.getAllByText('Fresh Whole Tilapia').length).toBeGreaterThan(0)
   })
 
   it('adds products to the basket and updates the total', async () => {
     const user = userEvent.setup()
     render(<App />)
 
-    const addButtons = screen.getAllByRole('button', { name: 'Add to basket' })
+    const addButtons = await screen.findAllByRole('button', { name: /add to cart/i })
     await user.click(addButtons[0])
 
     expect(screen.getByText('Your basket')).toBeInTheDocument()
     expect(screen.getAllByText('Fresh Whole Tilapia').length).toBeGreaterThan(0)
     expect(screen.getAllByText(/KSh/i).length).toBeGreaterThan(0)
+  })
+
+  it('opens category dashboards directly without unnecessary filters', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Kitchen' }))
+
+    expect(await screen.findByRole('heading', { name: 'Kitchen' })).toBeInTheDocument()
+    expect(screen.getByText('No products are available in Kitchen right now.')).toBeInTheDocument()
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument()
+    for (const category of ['Fish Butchery', 'Combos', 'Kitchen', 'Drinks']) {
+      expect(screen.getByRole('button', { name: category })).toBeInTheDocument()
+    }
+    expect(screen.getByRole('button', { name: 'Back to store' })).toBeInTheDocument()
+  })
+
+  it('opens the shared basket and checkout from a category dashboard', async () => {
+    const user = userEvent.setup()
+    window.history.pushState({}, '', '/shop/fish-butchery')
+    render(<App />)
+
+    const addButton = await screen.findByRole('button', { name: /add to cart/i })
+    await user.click(addButton)
+    expect(screen.getByText('Your basket')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dismiss basket overlay' })).toBeInTheDocument()
+    expect(screen.getAllByText('Fresh Whole Tilapia')).toHaveLength(2)
+
+    await user.click(screen.getByRole('button', { name: 'Checkout' }))
+    expect(await screen.findByRole('heading', { name: 'Checkout' })).toBeInTheDocument()
+    expect(screen.getByText(/Fresh Whole Tilapia.*× 1/)).toBeInTheDocument()
+    expect(screen.getByText('To be confirmed')).toBeInTheDocument()
+  })
+
+  it('updates cart quantities and submits an order through the API', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    const addButtons = await screen.findAllByRole('button', { name: /add to cart/i })
+    await user.click(addButtons[0])
+    await user.click(screen.getByRole('button', { name: 'Increase quantity for Fresh Whole Tilapia' }))
+    expect(screen.getByText('Ksh 1,700')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'CHECKOUT' }))
+    await user.type(screen.getByLabelText('Full name'), 'Alex Customer')
+    await user.type(screen.getByLabelText('Mobile phone number'), '+254700000000')
+    await user.type(screen.getByLabelText('Delivery location'), 'Langata, Nairobi')
+    await user.click(screen.getByRole('button', { name: 'Place Order' }))
+
+    expect(await screen.findByText('PF-TEST-1')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Order Successfully Placed!' })).toBeInTheDocument()
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/orders'), expect.objectContaining({ method: 'POST' }))
+  })
+
+  it('keeps the basket and shows an error when the backend rejects an order', async () => {
+    const mockedFetch = vi.mocked(fetch)
+    const originalFetch = mockedFetch.getMockImplementation()
+    mockedFetch.mockImplementation(async (input, ...init) => {
+      if (String(input).includes('/orders')) {
+        return { ok: false, json: async () => ({ error: 'Product is unavailable.' }) } as Response
+      }
+      if (originalFetch) return originalFetch(input, ...init)
+      return { ok: true, json: async () => ({}) } as Response
+    })
+
+    const user = userEvent.setup()
+    render(<App />)
+    const addButtons = await screen.findAllByRole('button', { name: /add to cart/i })
+    await user.click(addButtons[0])
+    await user.click(screen.getByRole('button', { name: 'CHECKOUT' }))
+    await user.type(screen.getByLabelText('Full name'), 'Alex Customer')
+    await user.type(screen.getByLabelText('Mobile phone number'), '+254700000000')
+    await user.type(screen.getByLabelText('Delivery location'), 'Langata, Nairobi')
+    await user.click(screen.getByRole('button', { name: 'Place Order' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Product is unavailable.')
+    expect(screen.queryByRole('heading', { name: 'Order Successfully Placed!' })).not.toBeInTheDocument()
+    expect(screen.getAllByText('Fresh Whole Tilapia')).toHaveLength(2)
   })
 })

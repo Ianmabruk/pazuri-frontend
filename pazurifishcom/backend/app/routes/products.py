@@ -1,60 +1,89 @@
 from flask import Blueprint, jsonify, request
 
-products_bp = Blueprint('products', __name__, url_prefix='/api')
+from app.extensions import db
+from app.models import Product
+from app.routes.auth import get_authenticated_admin
 
-PRODUCTS = [
-    {
-        'id': 1,
-        'name': 'Fresh Whole Tilapia',
-        'description': 'Fresh whole tilapia, selected for your table.',
-        'category': 'Fish Butchery',
-        'price': 650,
-        'unit': 'per kg',
-        'image_url': 'https://images.unsplash.com/photo-1544943910-4c1dc44aab77?auto=format&fit=crop&w=900&q=80',
-    },
-    {
-        'id': 2,
-        'name': 'Fresh Nile Perch',
-        'description': 'Quality Nile perch, prepared to order.',
-        'category': 'Fish Butchery',
-        'price': 850,
-        'unit': 'per kg',
-        'image_url': 'https://images.unsplash.com/photo-1535399831218-d5bd36d1a6b3?auto=format&fit=crop&w=900&q=80',
-    },
-    {
-        'id': 3,
-        'name': 'Grilled Tilapia',
-        'description': 'A freshly prepared kitchen favourite.',
-        'category': 'Kitchen',
-        'price': 1200,
-        'unit': 'per serving',
-        'image_url': 'https://images.unsplash.com/photo-1559847844-5315695dadae?auto=format&fit=crop&w=900&q=80',
-    },
-]
+products_bp = Blueprint('products', __name__, url_prefix='/api')
 
 
 @products_bp.get('/products')
 def get_products():
-    return jsonify({'products': PRODUCTS})
+    products = [product.to_dict() for product in Product.query.filter_by(is_available=True).order_by(Product.name.asc()).all()]
+    return jsonify({'products': products})
+
+
+@products_bp.get('/products/<int:product_id>')
+def get_product(product_id):
+    product = Product.query.get_or_404(product_id)
+    return jsonify({'product': product.to_dict()})
 
 
 @products_bp.post('/products')
 def create_product():
+    auth_user = get_authenticated_admin()
+    if auth_user is None:
+        return jsonify({'error': 'Unauthorized'}), 401
+
     payload = request.get_json(silent=True) or {}
-    required = {'name', 'description', 'category', 'price', 'unit'}
+    required = {'name', 'description', 'category', 'selling_price', 'unit'}
     missing = sorted(required.difference(payload.keys()))
 
     if missing:
         return jsonify({'error': f'Missing required fields: {missing}'}), 400
 
-    new_product = {
-        'id': max((item['id'] for item in PRODUCTS), default=0) + 1,
-        'name': payload['name'],
-        'description': payload['description'],
-        'category': payload['category'],
-        'price': float(payload['price']),
-        'unit': payload['unit'],
-        'image_url': payload.get('image_url', ''),
-    }
-    PRODUCTS.append(new_product)
-    return jsonify({'product': new_product}), 201
+    product = Product(
+        sku=payload.get('sku') or f"PF-{Product.query.count() + 1:04d}",
+        name=payload['name'],
+        description=payload['description'],
+        specifications=payload.get('specifications', ''),
+        category=payload['category'],
+        selling_price=float(payload['selling_price']),
+        cost_price=float(payload.get('cost_price', 0) or 0),
+        unit=payload['unit'],
+        image_url=payload.get('image_url') or payload.get('image') or '',
+        stock_quantity=int(payload.get('stock_quantity', 0) or 0),
+        minimum_stock=int(payload.get('minimum_stock', 0) or 0),
+        is_available=bool(payload.get('is_available', True)),
+    )
+    db.session.add(product)
+    db.session.commit()
+    return jsonify({'product': product.to_dict()}), 201
+
+
+@products_bp.route('/products/<int:product_id>', methods=['PUT', 'DELETE'])
+def manage_product(product_id):
+    admin = get_authenticated_admin()
+    if admin is None:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    product = Product.query.get_or_404(product_id)
+    if request.method == 'DELETE':
+        db.session.delete(product)
+        db.session.commit()
+        return jsonify({'deleted': True, 'id': product_id})
+
+    payload = request.get_json(silent=True) or {}
+    product.name = payload.get('name', product.name)
+    product.description = payload.get('description', product.description)
+    product.specifications = payload.get('specifications', product.specifications)
+    product.category = payload.get('category', product.category)
+    product.selling_price = float(payload.get('selling_price', product.selling_price) or product.selling_price)
+    product.cost_price = float(payload.get('cost_price', product.cost_price) or product.cost_price)
+    product.unit = payload.get('unit', product.unit)
+    product.image_url = payload.get('image_url') or payload.get('image') or product.image_url
+    product.stock_quantity = int(payload.get('stock_quantity', product.stock_quantity) or product.stock_quantity)
+    product.minimum_stock = int(payload.get('minimum_stock', product.minimum_stock) or product.minimum_stock)
+    product.is_available = bool(payload.get('is_available', product.is_available))
+    product.sku = payload.get('sku', product.sku)
+    db.session.commit()
+    return jsonify({'product': product.to_dict()})
+
+
+@products_bp.get('/admin/products')
+def admin_products():
+    admin = get_authenticated_admin()
+    if admin is None:
+        return jsonify({'error': 'Unauthorized'}), 401
+    products = [product.to_dict() for product in Product.query.order_by(Product.name.asc()).all()]
+    return jsonify({'products': products})
