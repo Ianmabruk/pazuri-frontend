@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   ArrowRight,
   ChevronLeft,
   ChevronRight,
-  Heart,
   Home,
   MapPin,
-  Menu,
   Phone,
   Minus,
   PackageCheck,
@@ -15,91 +13,32 @@ import {
   ShieldCheck,
   ShoppingBasket,
   Truck,
-  UserRound,
   X,
 } from 'lucide-react'
 import { FaFacebookF, FaInstagram, FaTiktok } from 'react-icons/fa6'
-import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
+import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import './App.css'
 import PazuriBrand from './components/PazuriBrand/PazuriBrand.jsx'
+import { DEMO_FEATURED_PRODUCTS, DEMO_OFFERS } from './storefront/demoCatalog'
+import {
+  apiUrl,
+  categorySlugFor,
+  DEFAULT_SHOP_CATEGORIES,
+  FALLBACK_PRODUCT_IMAGE,
+  fetchApiJson,
+  formatKsh,
+  getShopCategories,
+  localImage,
+  StorefrontImage,
+  type CartItem,
+  type Category,
+  type HeroContent,
+  type HomepageCategory,
+  type Offer,
+  type Product,
+} from './storefront/shared'
 
-type Category = 'All Products' | 'Fish Butchery' | 'Kitchen' | 'Combos' | 'Drinks'
-
-type HomepageCategory = {
-  id: number
-  name: string
-  image_url: string
-  display_order: number
-  is_active: boolean
-  show_on_homepage: boolean
-}
-
-type Product = {
-  id: number
-  name: string
-  category: string
-  description: string
-  price?: number
-  selling_price?: number
-  unit: string
-  image?: string
-  image_url?: string
-  stock_quantity?: number
-  minimum_stock?: number
-  is_available?: boolean
-  specifications?: string
-}
-
-type CartItem = Product & {
-  quantity: number
-}
-
-type Offer = {
-  id: number
-  product_id?: number
-  product_name?: string
-  title: string
-  description: string
-  image_url?: string
-  badge?: string
-  promo_price?: number
-  original_price?: number
-  discount_type?: string
-  discount_value?: number
-  is_published?: boolean
-  ends_at?: string
-  start_date?: string
-  expiry_date?: string
-  cta_label?: string
-  cta_url?: string
-}
-
-type HeroContent = {
-  title: string
-  subtitle: string
-  description?: string
-  image_url: string
-  cta_label?: string
-  cta_url?: string
-}
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api').replace(/\/+$/, '')
-const apiUrl = (path: string) => `${API_BASE_URL}/${path.replace(/^\//, '')}`
-const knownLocalImages: Record<string, string> = {
-  'photo-1544943910-4c1dc44aab77': '/images/products/fresh-fish.jpg',
-  'photo-1519708227418-c8fd9a32b7a2': '/images/products/fresh-fish.jpg',
-  'photo-1546173159-315724a31696': '/images/products/fresh-drink.jpg',
-  'photo-1510130387422-82bed34b37e9': '/images/products/fish-cuts.jpg',
-  'photo-1559847844-5315695dadae': '/images/products/kitchen-meal.jpg',
-  'photo-1579208030886-b937da0925dc': '/images/products/fish-and-chips.jpg',
-  'photo-1515516969-d4008cc6241a': '/images/products/family-combo.jpg',
-  'photo-1535399831218-d5bd36d1a6b3': '/images/products/nile-perch.jpg',
-}
-const localImage = (source?: string, fallback = '/images/products/fresh-fish.jpg') => {
-  if (!source) return fallback
-  const photoId = source.match(/photo-[\w-]+/)?.[0]
-  return photoId && knownLocalImages[photoId] ? knownLocalImages[photoId] : source
-}
+const LazyCategoryShopPage = lazy(() => import('./storefront/CategoryShopPage'))
 
 const uploadAdminImage = async (file: File) => {
   const token = localStorage.getItem('pazuri-admin-token')
@@ -122,63 +61,19 @@ const defaultHero: HeroContent = {
   image_url: '/images/products/fresh-fish.jpg',
 }
 
-const CATEGORIES: Category[] = ['All Products', 'Fish Butchery', 'Kitchen', 'Combos', 'Drinks']
-const DEFAULT_SHOP_CATEGORIES: HomepageCategory[] = [
-  { id: -1, name: 'Fish Butchery', image_url: '/images/products/fish-cuts.jpg', display_order: 0, is_active: true, show_on_homepage: true },
-  { id: -2, name: 'Combos', image_url: '/images/products/family-combo.jpg', display_order: 1, is_active: true, show_on_homepage: true },
-  { id: -3, name: 'Kitchen', image_url: '/images/products/kitchen-meal.jpg', display_order: 2, is_active: true, show_on_homepage: true },
-  { id: -4, name: 'Drinks', image_url: '/images/products/fresh-drink.jpg', display_order: 3, is_active: true, show_on_homepage: true },
-]
-const categorySlugFor = (name: string) => name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-const getShopCategories = (categories: HomepageCategory[], includeHidden = false) => {
-  const activeCategories = categories.filter((category) => category.is_active !== false)
-  const defaultCategories = DEFAULT_SHOP_CATEGORIES.map((fallback) => {
-    const category = activeCategories.find((item) => item.name.toLowerCase() === fallback.name.toLowerCase())
-    return category ? { ...fallback, ...category, image_url: category.image_url || fallback.image_url } : fallback
-  })
-  const additionalCategories = activeCategories.filter((category) =>
-    (includeHidden || category.show_on_homepage !== false)
-    && !DEFAULT_SHOP_CATEGORIES.some((fallback) => fallback.name.toLowerCase() === category.name.toLowerCase()),
-  )
-
-  return [...defaultCategories, ...additionalCategories]
-}
-
-const formatKsh = (value: number) =>
-  new Intl.NumberFormat('en-KE', {
-    style: 'currency',
-    currency: 'KES',
-    maximumFractionDigits: 0,
-  }).format(value)
-
-const formatCountdown = (expiresAt?: string, currentTime = Date.now()) => {
-  if (!expiresAt) return ''
-
-  const target = new Date(expiresAt).getTime()
-  const diff = Math.max(target - currentTime, 0)
-  const seconds = Math.floor(diff / 1000)
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const days = Math.floor(hours / 24)
-
-  if (seconds <= 0) return 'Offer ending soon'
-  if (days > 0) return `${days}d ${hours % 24}h left`
-  if (hours > 0) return `${hours}h ${minutes}m left`
-  return `${minutes}m left`
-}
-
 function StorefrontPage() {
   const navigate = useNavigate()
   const [selectedCategory, setSelectedCategory] = useState<Category>('All Products')
+  const [showAllProducts, setShowAllProducts] = useState(false)
   const [query, setQuery] = useState('')
   const [basketOpen, setBasketOpen] = useState(false)
   const [heroIndex, setHeroIndex] = useState(0)
-  const [currentTime, setCurrentTime] = useState(Date.now())
   const [offers, setOffers] = useState<Offer[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [heroSlides, setHeroSlides] = useState<HeroContent[]>([defaultHero])
   const [heroSwipeStart, setHeroSwipeStart] = useState<number | null>(null)
   const [homepageCategories, setHomepageCategories] = useState<HomepageCategory[]>(DEFAULT_SHOP_CATEGORIES)
+  const [contentError, setContentError] = useState('')
   const [cart, setCart] = useState<CartItem[]>(() => {
     if (typeof window === 'undefined') return []
 
@@ -198,7 +93,7 @@ function StorefrontPage() {
 
   const hero = heroSlides[heroIndex] ?? defaultHero
   const resolvedHeroImageUrl = localImage(hero.image_url, defaultHero.image_url)
-  const heroImageUrl = resolvedHeroImageUrl === defaultHero.image_url
+  const heroImageUrl = hero === defaultHero
     ? '/images/hero-seafood.png'
     : resolvedHeroImageUrl
 
@@ -232,75 +127,109 @@ function StorefrontPage() {
   }, [])
 
   useEffect(() => {
-    const clockTimer = window.setInterval(() => {
-      setCurrentTime(Date.now())
-    }, 1000)
-
-    return () => window.clearInterval(clockTimer)
-  }, [])
-
-  useEffect(() => {
     const loadContent = async () => {
-      try {
-        const [productsRes, heroRes, offersRes, categoriesRes] = await Promise.all([
-          fetch(apiUrl('products')),
-          fetch(apiUrl('content/hero')),
-          fetch(apiUrl('offers')),
-          fetch(apiUrl('categories/homepage')),
-        ])
+      const results = await Promise.allSettled([
+        fetchApiJson<{ products?: Product[] }>('products'),
+        fetchApiJson<{ hero?: HeroContent; slides?: HeroContent[] }>('content/hero'),
+        fetchApiJson<{ offers?: Offer[] }>('offers'),
+        fetchApiJson<{ categories?: HomepageCategory[] }>('categories/homepage'),
+      ])
+      const errors: string[] = []
 
-        let loadedProducts: Product[] = []
-        if (productsRes.ok) {
-          const productPayload = await productsRes.json().catch(() => ({}))
-          loadedProducts = Array.isArray(productPayload.products) ? productPayload.products : []
-          setProducts(loadedProducts)
-        }
-
-        if (heroRes.ok) {
-          const heroPayload = await heroRes.json().catch(() => ({}))
-          const slides = Array.isArray(heroPayload.slides) ? heroPayload.slides : heroPayload.hero ? [heroPayload.hero] : [defaultHero]
-          setHeroSlides(slides.filter((slide: HeroContent) => slide && slide.image_url))
-        }
-
-        if (offersRes.ok) {
-          const offersPayload = await offersRes.json().catch(() => ({}))
-          const activeOffers = Array.isArray(offersPayload.offers)
-            ? offersPayload.offers.filter((offer: Offer) => offer.id !== 0 && offer.is_published !== false)
-            : []
-          setOffers(activeOffers)
-        } else {
-          setOffers([])
-        }
-
-        if (categoriesRes.ok) {
-          const categoriesPayload = await categoriesRes.json().catch(() => ({}))
-          const categories = Array.isArray(categoriesPayload.categories) ? categoriesPayload.categories : []
-          setHomepageCategories(getShopCategories(categories))
-        } else {
-          setHomepageCategories(DEFAULT_SHOP_CATEGORIES)
-        }
-      } catch {
+      const [productsResult, heroResult, offersResult, categoriesResult] = results
+      if (productsResult.status === 'fulfilled') {
+        setProducts(Array.isArray(productsResult.value.products) ? productsResult.value.products : [])
+      } else {
+        console.error('Unable to load storefront products.', productsResult.reason)
         setProducts([])
-        setHeroSlides([defaultHero])
-        setOffers([])
-        setHomepageCategories(DEFAULT_SHOP_CATEGORIES)
+        errors.push('products')
       }
+
+      if (heroResult.status === 'fulfilled') {
+        const slides = Array.isArray(heroResult.value.slides)
+          ? heroResult.value.slides
+          : heroResult.value.hero
+            ? [heroResult.value.hero]
+            : []
+        setHeroSlides(slides.filter((slide) => slide && slide.image_url).length ? slides.filter((slide) => slide && slide.image_url) : [defaultHero])
+      } else {
+        console.error('Unable to load homepage hero content.', heroResult.reason)
+        setHeroSlides([defaultHero])
+        errors.push('hero content')
+      }
+
+      if (offersResult.status === 'fulfilled') {
+        const activeOffers = Array.isArray(offersResult.value.offers)
+          ? offersResult.value.offers.filter((offer) => offer.id !== 0 && offer.is_published !== false)
+          : []
+        setOffers(activeOffers)
+      } else {
+        console.error('Unable to load active offers.', offersResult.reason)
+        setOffers([])
+        errors.push('offers')
+      }
+
+      if (categoriesResult.status === 'fulfilled') {
+        const categories = Array.isArray(categoriesResult.value.categories) ? categoriesResult.value.categories : []
+        setHomepageCategories(getShopCategories(categories))
+      } else {
+        console.error('Unable to load homepage categories.', categoriesResult.reason)
+        setHomepageCategories(DEFAULT_SHOP_CATEGORIES)
+        errors.push('categories')
+      }
+
+      setContentError(errors.length ? `Some store information could not be loaded (${errors.join(', ')}).` : '')
     }
 
     void loadContent()
   }, [])
 
+  const liveOfferCards = useMemo(() => offers.flatMap((offer) => {
+    const product = products.find((item) => item.id === offer.product_id)
+    const promoPrice = Number(offer.promo_price ?? 0)
+    const originalPrice = Number(offer.original_price ?? 0)
+    const livePrice = Number(product?.price ?? product?.selling_price ?? 0)
+    if (!product || product.demo_only || promoPrice <= 0 || originalPrice <= promoPrice || Math.abs(livePrice - promoPrice) > 0.01) return []
+    return [{ ...offer, product, demo_only: false }]
+  }), [offers, products])
+
+  const offerCards = useMemo(() => [
+    ...liveOfferCards.slice(0, 4),
+    ...DEMO_OFFERS
+      .filter((demoOffer) => !liveOfferCards.some((offer) => offer.product.id === demoOffer.product.id))
+      .slice(0, Math.max(0, 4 - liveOfferCards.length)),
+  ], [liveOfferCards])
+
+  const featuredProducts = useMemo(() => {
+    const featuredOrder = ['fresh whole tilapia', 'fresh nile perch', 'tilapia fillet', 'family fish combo']
+    const liveProducts = products
+      .filter((product) => product.is_available !== false && Number(product.stock_quantity ?? 0) > 0)
+      .sort((left, right) => {
+        const leftIndex = featuredOrder.indexOf(left.name.toLowerCase())
+        const rightIndex = featuredOrder.indexOf(right.name.toLowerCase())
+        return (leftIndex < 0 ? featuredOrder.length : leftIndex) - (rightIndex < 0 ? featuredOrder.length : rightIndex)
+      })
+      .slice(0, 4)
+    const liveNames = new Set(liveProducts.map((product) => product.name.toLowerCase()))
+    const demos = DEMO_FEATURED_PRODUCTS
+      .filter((product) => !liveNames.has(product.name.toLowerCase()))
+      .slice(0, Math.max(0, 4 - liveProducts.length))
+    return [...liveProducts, ...demos]
+  }, [products])
+
   const visibleProducts = useMemo(() => {
-    return products.filter((product) => {
+    const catalog = showAllProducts || query.trim() || selectedCategory !== 'All Products' ? products : featuredProducts
+    return catalog.filter((product) => {
       const matchesCategory = selectedCategory === 'All Products' || product.category === selectedCategory
       const haystack = `${product.name} ${product.description} ${product.category}`.toLowerCase()
       const matchesQuery = haystack.includes(query.toLowerCase())
       return matchesCategory && matchesQuery
     })
-  }, [products, query, selectedCategory])
+  }, [featuredProducts, products, query, selectedCategory, showAllProducts])
 
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + Number(item.price ?? item.selling_price ?? 0) * item.quantity, 0), [cart])
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0)
+  const hasDemoCartItems = cart.some((item) => item.demo_only)
 
   const addToCart = (product: Product) => {
     const stockAvailable = Number(product.stock_quantity ?? 0)
@@ -348,6 +277,10 @@ function StorefrontPage() {
     event.preventDefault()
     if (checkoutSubmitting || !checkoutForm.full_name.trim() || !checkoutForm.phone.trim()) return
     if (cart.length === 0) return
+    if (cart.some((item) => item.demo_only)) {
+      setCheckoutError('Demo items are for presentation only. Remove them before placing an order.')
+      return
+    }
 
     setCheckoutSubmitting(true)
     setCheckoutError('')
@@ -398,7 +331,7 @@ function StorefrontPage() {
 
         <nav className="main-nav" aria-label="Primary navigation">
           <a href="#top">Home</a>
-          {homepageCategories.map((category) => <a key={category.name} href={`/shop/${categorySlugFor(category.name)}`}>{category.name}</a>)}
+          {homepageCategories.map((category) => <Link key={category.name} to={`/shop/${categorySlugFor(category.name)}`}>{category.name}</Link>)}
         </nav>
 
         <label className="header-search">
@@ -413,6 +346,7 @@ function StorefrontPage() {
       </header>
 
       <main>
+        {contentError ? <p className="storefront-error" role="status">{contentError}</p> : null}
         <section className="hero-section freshco-hero" onTouchStart={(event) => setHeroSwipeStart(event.touches[0]?.clientX ?? null)} onTouchEnd={(event) => {
           if (heroSwipeStart === null) return
           const end = event.changedTouches[0]?.clientX ?? heroSwipeStart
@@ -427,7 +361,15 @@ function StorefrontPage() {
             <a className="hero-shop-link" href={hero.cta_url || '#shop'}>{hero.cta_label || 'Shop Fresh Fish'} <ArrowRight size={15} /></a>
           </div>
           <div className="freshco-hero-image">
-            <img key={hero.image_url} src={heroImageUrl} alt="Fresh seafood from Pazuri Fish" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = defaultHero.image_url }} />
+            <StorefrontImage
+              key={hero.image_url}
+              source={heroImageUrl}
+              alt="Fresh seafood from Pazuri Fish"
+              fallback={defaultHero.image_url}
+              loading="eager"
+              fetchPriority="high"
+              sizes="(max-width: 760px) calc(100vw - 24px), (max-width: 980px) 55vw, 52vw"
+            />
           </div>
           <div className="hero-dots" aria-label="Hero slide indicators">
             {heroSlides.map((slide, index) => (
@@ -437,14 +379,17 @@ function StorefrontPage() {
           {heroSlides.length > 1 ? <div className="hero-slider-controls"><button type="button" aria-label="Previous promotional slide" onClick={() => setHeroIndex((current) => (current - 1 + heroSlides.length) % heroSlides.length)}><ChevronLeft size={18} /></button><button type="button" aria-label="Next promotional slide" onClick={() => setHeroIndex((current) => (current + 1) % heroSlides.length)}><ChevronRight size={18} /></button></div> : null}
         </section>
 
-        <section className="category-section" id="categories">
-          <div className="category-section-heading">
-            <div><p className="section-kicker">EXPLORE</p><h2>Shop by Category</h2></div>
-          </div>
+        <section className="category-section" id="categories" aria-label="Product categories">
           <div className="category-carousel">
             {homepageCategories.map((category) => (
               <button key={category.name} type="button" className="category-card" onClick={() => navigate(`/shop/${categorySlugFor(category.name)}`)}>
-                <img src={localImage(category.image_url || products.find((product) => product.category.toLowerCase() === category.name.toLowerCase())?.image_url, defaultHero.image_url)} alt="" aria-hidden="true" loading="lazy" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = defaultHero.image_url }} />
+                <StorefrontImage
+                  source={category.image_url || products.find((product) => product.category.toLowerCase() === category.name.toLowerCase())?.image_url}
+                  alt=""
+                  aria-hidden="true"
+                  fallback={defaultHero.image_url}
+                  sizes="(max-width: 760px) 45vw, (max-width: 980px) 23vw, 25vw"
+                />
                 <span>{category.name}</span>
               </button>
             ))}
@@ -453,53 +398,90 @@ function StorefrontPage() {
 
         <section className="promotion-cards" id="offers" aria-label="Promotions">
           <div className="section-heading featured-heading promotion-section-heading">
-            <div><p className="section-kicker">GOOD CATCHES, GREAT VALUE</p><h2>Offers</h2></div>
+            <div><h2>Offers</h2></div>
           </div>
-          {offers.slice(0, 3).map((offer, index) => (
-            <article key={offer.id} className={`promotion-card ${index === 0 ? 'promotion-blue' : index === 1 ? 'promotion-orange' : 'promotion-cream'}`}>
-              {(() => {
-                const product = products.find((item) => item.id === offer.product_id)
-                return (
-                  <>
-                    <div className="promotion-copy">
-                      <h3>{offer.title}</h3><p>{offer.description}</p>
-                      {offer.promo_price ? <div className="promotion-prices"><strong>{formatKsh(Number(offer.promo_price))}</strong>{offer.original_price ? <del>{formatKsh(Number(offer.original_price))}</del> : null}</div> : null}
-                      {product ? <button type="button" className="promotion-add-button" onClick={() => addToCart(product)}>Add to Cart <ArrowRight size={14} /></button> : <button type="button" className="promotion-add-button" onClick={() => navigate(offer.title.toLowerCase().includes('combo') ? '/shop/combos' : '/shop/fish-butchery')}>{offer.cta_label || 'Browse products'} <ArrowRight size={14} /></button>}
-                    </div>
-                    <img src={localImage(offer.image_url || product?.image_url, defaultHero.image_url)} alt="" aria-hidden="true" loading="lazy" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = defaultHero.image_url }} />
-                  </>
-                )
-              })()}
-            </article>
-          ))}
+          {offerCards.map((offer, index) => {
+            const product = offer.product
+            const promoPrice = Number(offer.promo_price ?? 0)
+            const originalPrice = Number(offer.original_price ?? 0)
+            const discount = originalPrice > 0 && promoPrice > 0
+              ? Math.round((1 - promoPrice / originalPrice) * 100)
+              : Number(offer.discount_value ?? 0)
+
+            return (
+              <article key={offer.id} className={`promotion-card ${index === 0 ? 'promotion-blue' : index === 1 ? 'promotion-orange' : 'promotion-cream'}`}>
+                <div className="promotion-copy">
+                  <span className={offer.demo_only ? 'promotion-label demo-label' : 'promotion-label'}>{offer.demo_only ? 'DEMO OFFER' : offer.badge || 'SPECIAL OFFER'}</span>
+                  <h3>{offer.title || product.name}</h3>
+                  {offer.title !== product.name ? <p className="promotion-product-name">{product.name}</p> : null}
+                  <p>{offer.description}</p>
+                  <div className="promotion-prices">
+                    <strong>{formatKsh(promoPrice)}</strong>
+                    <del>{formatKsh(originalPrice)}</del>
+                    {discount > 0 ? <span className="promotion-discount">{discount}% off</span> : null}
+                  </div>
+                  <button type="button" className="promotion-add-button" onClick={() => addToCart(product)}>
+                    {recentlyAddedId === product.id ? 'Added to Basket' : 'Add to Cart'} <ShoppingBasket size={14} />
+                  </button>
+                </div>
+                <StorefrontImage
+                  source={offer.image_url || product.image_url}
+                  alt={`${product.name} offer`}
+                  fallback={defaultHero.image_url}
+                  sizes="(max-width: 760px) 92vw, (max-width: 980px) 45vw, 33vw"
+                />
+              </article>
+            )
+          })}
         </section>
 
         <section id="shop" className="featured-section">
           <div className="section-heading featured-heading">
-            <div><p className="section-kicker">PICK YOUR FAVOURITES</p><h2>Featured Products</h2></div>
-            <a href="#shop" onClick={() => setSelectedCategory('All Products')}>View All <ArrowRight size={15} /></a>
+            <div>
+              <h2>Products</h2>
+              <h3 className="featured-subheading">{showAllProducts ? 'All Products' : 'Featured Products'}</h3>
+            </div>
+            <button type="button" className="featured-view-all" onClick={() => {
+              setSelectedCategory('All Products')
+              setQuery('')
+              setShowAllProducts((showAll) => !showAll)
+            }}>
+              {showAllProducts ? 'Show Featured' : 'View All'} <ArrowRight size={15} />
+            </button>
           </div>
 
           <div className="featured-toolbar">
             <div className="category-tabs" aria-label="Product categories">
               {(['All Products', ...homepageCategories.map((category) => category.name)] as Category[]).map((category) => (
-                <button key={category} type="button" className={selectedCategory === category ? 'category-tab active' : 'category-tab'} onClick={() => setSelectedCategory(category)}>{category}</button>
+                <button key={category} type="button" className={selectedCategory === category ? 'category-tab active' : 'category-tab'} onClick={() => {
+                  setSelectedCategory(category)
+                  setShowAllProducts(false)
+                }}>{category}</button>
               ))}
             </div>
           </div>
 
           {visibleProducts.length === 0 ? (
-            <div className="empty-state"><p>No products match your search just yet.</p><button type="button" onClick={() => setQuery('')}>Clear search</button></div>
+            <div className="empty-state"><p>No products match your search just yet.</p><button type="button" className="brand-action-button" onClick={() => { setQuery(''); setShowAllProducts(false) }}>Clear Search</button></div>
           ) : (
             <div className="featured-grid">
-              {visibleProducts.slice(0, 6).map((product) => (
+              {visibleProducts.map((product) => (
                 <article key={product.id} className="freshco-product-card">
-                  <div className="availability-row"><span>{Number(product.stock_quantity ?? 0) > 0 ? 'In Stock' : 'Out of Stock'}</span></div>
-                  <button type="button" className="product-image-button" onClick={() => navigate(`/products/${product.id}`)}><img src={localImage(product.image_url || product.image)} alt={product.name} loading="lazy" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = defaultHero.image_url }} /></button>
+                  <div className="availability-row"><span>{product.demo_only ? 'Demo Preview' : Number(product.stock_quantity ?? 0) > 0 ? 'In Stock' : 'Out of Stock'}</span></div>
+                  {product.demo_only ? (
+                    <div className="product-image-button product-image-static">
+                      <StorefrontImage source={product.image_url || product.image} alt={product.name} fallback={defaultHero.image_url} sizes="(max-width: 760px) 72vw, (max-width: 980px) 30vw, 25vw" />
+                    </div>
+                  ) : (
+                    <button type="button" className="product-image-button" onClick={() => navigate(`/products/${product.id}`)}>
+                      <StorefrontImage source={product.image_url || product.image} alt={product.name} fallback={defaultHero.image_url} sizes="(max-width: 760px) 72vw, (max-width: 980px) 30vw, 25vw" />
+                    </button>
+                  )}
                   <div className="freshco-product-info">
                     <h3>{product.name}</h3><p>{product.unit}</p>
+                    {product.demo_only ? <p className="demo-product-note">Demonstration item · not in the live catalog</p> : null}
                     <div className="price-row"><strong>{formatKsh(Number(product.price ?? product.selling_price ?? 0))}</strong></div>
-                    <button type="button" className="add-cart-button" onClick={() => addToCart(product)} disabled={product.is_available === false || Number(product.stock_quantity ?? 0) <= 0}>{recentlyAddedId === product.id ? 'Added to basket' : 'Add to Cart'} <ShoppingBasket size={15} /></button>
+                    <button type="button" className="add-cart-button" onClick={() => addToCart(product)} disabled={product.is_available === false || Number(product.stock_quantity ?? 0) <= 0}>{recentlyAddedId === product.id ? 'Added to Basket' : 'Add to Cart'} <ShoppingBasket size={15} /></button>
                   </div>
                 </article>
               ))}
@@ -512,31 +494,32 @@ function StorefrontPage() {
             <div><p className="section-kicker">LIMITED-TIME PRICES</p><h2>Deals of the Week</h2></div>
           </div>
           {(() => {
-            const combo = products.find((product) => product.name.toLowerCase().includes('family fish combo'))
-            const familyOffer = offers.find((offer) => offer.title.toLowerCase().includes('family fish combo'))
-            const comboOffer = familyOffer?.product_id === combo?.id ? familyOffer : undefined
-            const regularPrice = Number(comboOffer?.original_price ?? combo?.selling_price ?? combo?.price ?? familyOffer?.original_price ?? 0)
-            const discountedPrice = Number(comboOffer?.promo_price ?? (!combo ? familyOffer?.promo_price : 0) ?? 0)
-            const hasDiscount = Boolean(discountedPrice > 0 && regularPrice > discountedPrice)
-            const discount = hasDiscount ? Number(comboOffer?.discount_value ?? familyOffer?.discount_value ?? Math.round((1 - discountedPrice / regularPrice) * 100)) : 0
-            return combo || familyOffer ? (
+            const combo = products.find((product) => !product.demo_only && product.name.toLowerCase().includes('family fish combo'))
+            const comboOffer = liveOfferCards.find((offer) => offer.product.id === combo?.id)
+            const regularPrice = Number(comboOffer?.original_price ?? combo?.selling_price ?? combo?.price ?? 0)
+            const discountedPrice = Number(comboOffer?.promo_price ?? 0)
+            const hasDiscount = Boolean(comboOffer && discountedPrice > 0 && regularPrice > discountedPrice)
+            const discount = hasDiscount ? Number(comboOffer?.discount_value ?? Math.round((1 - discountedPrice / regularPrice) * 100)) : 0
+            return combo ? (
               <article className="deal-feature-card">
-                <div className="deal-feature-image"><img src={localImage(combo?.image_url || combo?.image || familyOffer?.image_url, '/images/products/family-combo.jpg')} alt="" aria-hidden="true" loading="lazy" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = '/images/products/family-combo.jpg' }} /></div>
+                <div className="deal-feature-image">
+                  <StorefrontImage source={combo.image_url || combo.image} alt={combo.name} fallback="/images/products/family-combo.jpg" sizes="(max-width: 760px) 92vw, 48vw" />
+                </div>
                 <div className="deal-feature-copy">
                   {hasDiscount ? <span className="deal-badge">SAVE {discount}%</span> : null}
                   <p className="section-kicker">FAMILY FAVOURITE</p>
-                  <h3>{combo?.name || familyOffer?.title}</h3><p>{combo?.description || familyOffer?.description}</p>
+                  <h3>{combo.name}</h3><p>{combo.description}</p>
                   <div className="deal-feature-price"><strong>{formatKsh(hasDiscount ? discountedPrice : regularPrice)}</strong>{hasDiscount ? <span>{formatKsh(regularPrice)}</span> : null}</div>
-                  {combo ? <button type="button" className="add-cart-button" onClick={() => addToCart(combo)} disabled={combo.is_available === false || Number(combo.stock_quantity ?? 0) <= 0}>{recentlyAddedId === combo.id ? 'Added to basket' : 'Add to Cart'} <ShoppingBasket size={16} /></button> : <button type="button" className="add-cart-button" onClick={() => navigate('/shop/combos')}>Explore combo options <ArrowRight size={16} /></button>}
+                  <button type="button" className="add-cart-button" onClick={() => addToCart(combo)} disabled={combo.is_available === false || Number(combo.stock_quantity ?? 0) <= 0}>{recentlyAddedId === combo.id ? 'Added to Basket' : 'Add to Cart'} <ShoppingBasket size={16} /></button>
                 </div>
               </article>
-            ) : <p className="empty-state">The Family Fish Combo is not available right now.</p>
+            ) : <p className="empty-state">No weekly deal is available right now. See the offers above for current promotions.</p>
           })()}
         </section>
 
         <section className="bottom-promo">
           <div className="bottom-promo-copy"><p className="section-kicker">FRESH DELIVERY EVERYDAY</p><h2>Ready to Check Out?</h2><p>Order your fresh fish online and enjoy convenient delivery straight to your doorstep.</p><a href="#shop">Shop Now <ArrowRight size={15} /></a></div>
-          <img src="/images/products/family-combo.jpg" alt="Fresh seafood package" loading="lazy" />
+          <StorefrontImage source="/images/products/family-combo.jpg" alt="Seafood meal served with rice" fallback={defaultHero.image_url} sizes="(max-width: 760px) 100vw, 55vw" />
         </section>
       </main>
 
@@ -556,16 +539,17 @@ function StorefrontPage() {
         </div>
 
         {cart.length === 0 ? (
-          <div className="basket-empty"><p>Your basket is empty.</p><button type="button" onClick={() => setBasketOpen(false)}>Continue shopping</button></div>
+          <div className="basket-empty"><p>Your basket is empty.</p><button type="button" className="brand-action-button" onClick={() => setBasketOpen(false)}>Continue Shopping</button></div>
         ) : (
           <>
             <div className="basket-items">
               {cart.map((item) => (
                 <div key={item.id} className="basket-item">
-                  <img className="basket-item-image" src={localImage(item.image_url || item.image)} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = defaultHero.image_url }} />
+                  <StorefrontImage className="basket-item-image" source={item.image_url || item.image} alt="" sizes="58px" loading="eager" />
                   <div>
                     <h4>{item.name}</h4>
                     <p>{formatKsh(Number(item.price ?? item.selling_price ?? 0))} each</p>
+                    {item.demo_only ? <span className="demo-cart-label">Demo item · not orderable</span> : null}
                   </div>
                   <div className="basket-controls">
                     <div className="quantity-box">
@@ -601,7 +585,7 @@ function StorefrontPage() {
               <div className="checkout-order-items" aria-label="Items in your order">
                 {cart.map((item) => (
                   <div className="checkout-order-item" key={item.id}>
-                    <img src={localImage(item.image_url || item.image)} alt="" />
+                    <StorefrontImage source={item.image_url || item.image} alt="" sizes="42px" loading="eager" />
                     <span>{item.name} · {formatKsh(Number(item.price ?? item.selling_price ?? 0))} each × {item.quantity}</span>
                     <strong>{formatKsh(Number(item.price ?? item.selling_price ?? 0) * item.quantity)}</strong>
                   </div>
@@ -627,8 +611,9 @@ function StorefrontPage() {
               <div className="checkout-summary-row"><span>Delivery fee</span><strong>To be confirmed</strong></div>
               <div className="checkout-summary-row checkout-total-row"><span>Total before delivery</span><strong>{formatKsh(subtotal)}</strong></div>
               <p className="checkout-payment-note">Delivery charges and available payment methods are confirmed by our team after the order is placed. The total shown excludes any delivery fee.</p>
+              {hasDemoCartItems ? <p className="checkout-error" role="alert">Demo items are for presentation only. Remove them before placing an order.</p> : null}
               {checkoutError ? <p className="checkout-error" role="alert">{checkoutError}</p> : null}
-              <button type="submit" className="primary-button" disabled={checkoutSubmitting}>{checkoutSubmitting ? 'Placing order…' : 'Place Order'}</button>
+              <button type="submit" className="primary-button" disabled={checkoutSubmitting || hasDemoCartItems}>{checkoutSubmitting ? 'Placing order…' : 'Place Order'}</button>
             </form>
           </div>
         </div>
@@ -647,11 +632,11 @@ function StorefrontPage() {
       ) : null}
 
       <nav className="mobile-nav" aria-label="Mobile navigation">
-        {[{ label: 'Home', href: '#top', icon: Home, category: 'All Products' as Category }, ...homepageCategories.slice(0, 3).map((category) => ({ label: category.name, href: `/shop/${categorySlugFor(category.name)}`, icon: PackageCheck, category: category.name as Category }))].map(({ label, href, icon: Icon, category }) => (
-          <a key={label} href={href} className={selectedCategory === category ? 'mobile-link active' : 'mobile-link'} aria-label={label} onClick={() => setSelectedCategory(category)}>
+        {[{ label: 'Home', href: '/', icon: Home, category: 'All Products' as Category }, ...homepageCategories.slice(0, 3).map((category) => ({ label: category.name, href: `/shop/${categorySlugFor(category.name)}`, icon: PackageCheck, category: category.name as Category }))].map(({ label, href, icon: Icon, category }) => (
+          <Link key={label} to={href} className={selectedCategory === category ? 'mobile-link active' : 'mobile-link'} aria-label={label} onClick={() => setSelectedCategory(category)}>
             <Icon size={18} />
             <span>{label}</span>
-          </a>
+          </Link>
         ))}
       </nav>
     </div>
@@ -1264,7 +1249,7 @@ function AppRoot() {
         <Route path="/products/:productId" element={<ProductDetailPage />} />
         <Route path="/admin" element={<AdminLoginPage />} />
         <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-        <Route path="/shop/:categorySlug" element={<CategoryShopPage />} />
+        <Route path="/shop/:categorySlug" element={<Suspense fallback={<div className="empty-state" role="status"><p>Loading category…</p></div>}><LazyCategoryShopPage /></Suspense>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
@@ -1320,132 +1305,6 @@ function SettingsSection() {
         {message ? <p>{message}</p> : null}
         <div className="offer-form-actions"><button type="submit" className="primary-button">Update password</button></div>
       </form>
-    </div>
-  )
-}
-
-function CategoryShopPage() {
-  const { categorySlug } = useParams()
-  const navigate = useNavigate()
-  const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<HomepageCategory[]>(DEFAULT_SHOP_CATEGORIES)
-  const [categoryName, setCategoryName] = useState(() =>
-    DEFAULT_SHOP_CATEGORIES.find((category) => categorySlugFor(category.name) === categorySlug)?.name
-      || (categorySlug ? categorySlug.split('-').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') : 'Shop'),
-  )
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('pazuri-cart-v1') || '[]') as CartItem[]
-    } catch {
-      return []
-    }
-  })
-  const [basketOpen, setBasketOpen] = useState(false)
-  const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null)
-
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true)
-      setError('')
-      try {
-        const [productResponse, categoryResponse] = await Promise.all([
-          fetch(apiUrl('products')),
-          fetch(apiUrl('categories')),
-        ])
-        if (!productResponse.ok) throw new Error('Unable to load products.')
-        const productPayload = await productResponse.json()
-        const categoryPayload = categoryResponse.ok ? await categoryResponse.json() : { categories: [] }
-        const categoryList = Array.isArray(categoryPayload.categories) ? categoryPayload.categories as HomepageCategory[] : []
-        const shopCategories = getShopCategories(categoryList, true)
-        const category = shopCategories.find((item) => categorySlugFor(item.name) === categorySlug)
-        const resolvedName = category?.name || (categorySlug ? categorySlug.split('-').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') : 'Shop')
-        setCategoryName(resolvedName)
-        const serverProducts = Array.isArray(productPayload.products) ? productPayload.products as Product[] : []
-        setProducts(serverProducts)
-        setCategories(shopCategories)
-      } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : 'Unable to load this category.')
-        setProducts([])
-      } finally {
-        setLoading(false)
-      }
-    }
-    void load()
-  }, [categorySlug])
-
-  useEffect(() => {
-    localStorage.setItem('pazuri-cart-v1', JSON.stringify(cart))
-  }, [cart])
-
-  const addToCart = (product: Product) => {
-    const stock = Number(product.stock_quantity ?? 0)
-    const currentQuantity = cart.find((item) => item.id === product.id)?.quantity ?? 0
-    if (product.is_available === false || stock <= 0 || currentQuantity >= stock) return
-    setBasketOpen(true)
-    setCart((current) => {
-      const existing = current.find((item) => item.id === product.id)
-      return existing
-        ? current.map((item) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item)
-        : [...current, { ...product, quantity: 1, price: Number(product.price ?? product.selling_price ?? 0), image: localImage(product.image_url || product.image) }]
-    })
-    setRecentlyAddedId(product.id)
-    window.setTimeout(() => setRecentlyAddedId((current) => current === product.id ? null : current), 1400)
-  }
-
-  const categoryProducts = products.filter((product) => product.category.toLowerCase() === categoryName.toLowerCase())
-  const cartTotal = cart.reduce((total, item) => total + Number(item.price ?? item.selling_price ?? 0) * item.quantity, 0)
-  const cartItemCount = cart.reduce((total, item) => total + item.quantity, 0)
-  const updateQuantity = (productId: number, delta: number) => {
-    setCart((current) => current.flatMap((item) => {
-      if (item.id !== productId) return [item]
-      const quantity = item.quantity + delta
-      if (quantity <= 0) return []
-      if (Number(item.stock_quantity ?? 0) > 0 && quantity > Number(item.stock_quantity)) return [item]
-      return [{ ...item, quantity }]
-    }))
-  }
-  const removeFromCart = (productId: number) => setCart((current) => current.filter((item) => item.id !== productId))
-
-  return (
-    <div className="category-shop-page">
-      <header className="topbar detail-topbar">
-        <button type="button" className="brand-block category-shop-brand" onClick={() => navigate('/')} aria-label="Pazuri Fish home"><PazuriBrand iconSize={52} /></button>
-        <button type="button" className="basket-button" aria-label={`Open basket with ${cartItemCount} items`} onClick={() => setBasketOpen(true)}><ShoppingBasket size={20} />{cartItemCount > 0 ? <span className="cart-count">{cartItemCount}</span> : null}</button>
-        <button type="button" className="nav-action" onClick={() => navigate('/')}>Back to store</button>
-      </header>
-      <main className="category-shop-main">
-        <div className="category-shop-heading"><h1>{categoryName}</h1></div>
-        <nav className="shop-category-nav" aria-label="Product categories">
-          {categories.map((category) => <button key={category.name} type="button" className={category.name === categoryName ? 'active' : ''} onClick={() => navigate(`/shop/${categorySlugFor(category.name)}`)}>{category.name}</button>)}
-        </nav>
-        {loading ? <div className="empty-state"><p>Loading products…</p></div> : error ? <div className="empty-state"><p>{error}</p></div> : categoryProducts.length === 0 ? <div className="empty-state"><p>No products are available in {categoryName} right now.</p><button type="button" onClick={() => navigate('/')}>Browse all products</button></div> : (
-          <div className="featured-grid category-product-grid">
-            {categoryProducts.map((product) => (
-              <article key={product.id} className="freshco-product-card">
-                <div className="availability-row"><span>{Number(product.stock_quantity ?? 0) > 0 ? 'In Stock' : 'Out of Stock'}</span></div>
-                <button type="button" className="product-image-button" onClick={() => navigate(`/products/${product.id}`)}><img src={localImage(product.image_url || product.image)} alt={product.name} loading="lazy" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = defaultHero.image_url }} /></button>
-                <div className="freshco-product-info"><h3>{product.name}</h3><p>{product.unit}</p><p className="shop-product-description">{product.description}</p><div className="price-row"><strong>{formatKsh(Number(product.price ?? product.selling_price ?? 0))}</strong></div><button type="button" className="add-cart-button" onClick={() => addToCart(product)} disabled={product.is_available === false || Number(product.stock_quantity ?? 0) <= 0}>{recentlyAddedId === product.id ? 'Added to basket' : 'Add to Cart'} <ShoppingBasket size={15} /></button></div>
-              </article>
-            ))}
-          </div>
-        )}
-      </main>
-      {basketOpen ? <button type="button" className="basket-overlay" aria-label="Dismiss basket overlay" onClick={() => setBasketOpen(false)} /> : null}
-      <aside className={basketOpen ? 'basket-drawer open' : 'basket-drawer'} aria-live="polite">
-        <div className="basket-header"><h3>Your basket</h3><button type="button" aria-label="Close basket" onClick={() => setBasketOpen(false)}><X size={18} /></button></div>
-        {cart.length === 0 ? <div className="basket-empty"><p>Your basket is empty.</p><button type="button" onClick={() => setBasketOpen(false)}>Continue shopping</button></div> : <>
-          <div className="basket-items">{cart.map((item) => <div key={item.id} className="basket-item">
-            <img className="basket-item-image" src={localImage(item.image_url || item.image)} alt="" />
-            <div className="basket-item-copy"><h4>{item.name}</h4><p>{formatKsh(Number(item.price ?? item.selling_price ?? 0))} each</p></div>
-            <div className="basket-controls"><div className="quantity-box"><button type="button" onClick={() => updateQuantity(item.id, -1)} aria-label={`Decrease quantity for ${item.name}`}><Minus size={14} /></button><span>{item.quantity}</span><button type="button" onClick={() => updateQuantity(item.id, 1)} aria-label={`Increase quantity for ${item.name}`}><Plus size={14} /></button></div><button type="button" className="inline-remove" onClick={() => removeFromCart(item.id)}>Remove</button></div>
-          </div>)}</div>
-          <div className="basket-summary"><div><span>Subtotal</span><strong>{formatKsh(cartTotal)}</strong></div></div>
-          <button type="button" className="checkout-button" onClick={() => navigate('/#checkout')}>Checkout</button>
-          <button type="button" className="continue-shopping" onClick={() => setBasketOpen(false)}>Continue shopping</button>
-        </>}
-      </aside>
     </div>
   )
 }

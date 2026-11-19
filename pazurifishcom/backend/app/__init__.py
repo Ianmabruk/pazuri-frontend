@@ -209,6 +209,50 @@ def create_app():
             ]
             db.session.add_all(default_products)
 
+        demo_products = [
+            ('DEMO-COMBO-01', 'Family Seafood Feast', 'Combos', 'A shareable seafood selection with fresh fish and sides.', 3200, 'per combo', '/images/products/family-combo.jpg'),
+            ('DEMO-COMBO-02', 'Tilapia and Perch Duo', 'Combos', 'A sample pairing of fresh tilapia and Nile perch.', 2800, 'per combo', '/images/products/nile-perch.jpg'),
+            ('DEMO-COMBO-03', 'Grill Night Seafood Box', 'Combos', 'A mix of grill-ready seafood portions for a family meal.', 3500, 'per box', '/images/hero-seafood.png'),
+            ('DEMO-COMBO-04', 'Fish Supper Bundle', 'Combos', 'Fresh fish portions paired with a classic side.', 1950, 'per combo', '/images/products/fish-and-chips.jpg'),
+            ('DEMO-COMBO-05', 'Lake Catch Sharing Pack', 'Combos', 'A sample selection of Lake Victoria fish cuts to share.', 2600, 'per pack', '/images/products/fish-cuts.jpg'),
+            ('DEMO-COMBO-06', 'Weekend Seafood Mix', 'Combos', 'A varied seafood selection prepared for weekend cooking.', 3000, 'per combo', '/images/products/fresh-fish.jpg'),
+            ('DEMO-KITCHEN-01', 'Grilled Tilapia Meal', 'Kitchen', 'A freshly grilled tilapia meal, served with a choice of sides.', 1450, 'per serving', '/images/products/kitchen-meal.jpg'),
+            ('DEMO-KITCHEN-02', 'Fish and Chips', 'Kitchen', 'Crisp golden chips served with freshly prepared fish.', 1050, 'per serving', '/images/products/fish-and-chips.jpg'),
+            ('DEMO-KITCHEN-03', 'Pan-Seared Nile Perch', 'Kitchen', 'Tender Nile perch, pan-seared and served ready to enjoy.', 1650, 'per serving', '/images/products/nile-perch.jpg'),
+            ('DEMO-KITCHEN-04', 'Crispy Fish Fillet Plate', 'Kitchen', 'A golden fish fillet plate prepared fresh to order.', 1250, 'per serving', '/images/products/fish-cuts.jpg'),
+            ('DEMO-KITCHEN-05', 'Seafood Rice Bowl', 'Kitchen', 'A hearty seafood bowl with seasoned rice and fresh vegetables.', 1350, 'per serving', '/images/hero-seafood.png'),
+            ('DEMO-KITCHEN-06', 'Family Fish Platter', 'Kitchen', 'A prepared fish platter designed for sharing.', 2400, 'per platter', '/images/products/family-combo.jpg'),
+            ('DEMO-DRINK-01', 'Tropical Fruit Cooler', 'Drinks', 'A chilled fruit cooler with a bright, tropical finish.', 280, 'per bottle', 'https://images.unsplash.com/photo-1470337458703-46ad1756a187?auto=format&fit=crop&w=900&q=80'),
+            ('DEMO-DRINK-02', 'Orange Sunrise Juice', 'Drinks', 'A bright orange juice served chilled.', 300, 'per bottle', 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?auto=format&fit=crop&w=900&q=80'),
+            ('DEMO-DRINK-03', 'Iced Hibiscus Cooler', 'Drinks', 'A refreshing hibiscus cooler with a hint of citrus.', 280, 'per glass', 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=900&q=80'),
+            ('DEMO-DRINK-04', 'Tropical Smoothie', 'Drinks', 'A smooth tropical fruit blend, served cold.', 350, 'per bottle', 'https://images.unsplash.com/photo-1553530666-ba11a7da3888?auto=format&fit=crop&w=900&q=80'),
+            ('DEMO-DRINK-05', 'Lemon Mint Cooler', 'Drinks', 'A cool lemon and mint drink for a refreshing pairing.', 280, 'per glass', 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=900&q=80'),
+            ('DEMO-DRINK-06', 'Passion Fruit Juice', 'Drinks', 'A chilled passion fruit juice with a tangy finish.', 300, 'per bottle', 'https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=900&q=80'),
+        ]
+        existing_demo_skus = {
+            sku for (sku,) in Product.query.with_entities(Product.sku).filter(
+                Product.sku.in_([product[0] for product in demo_products])
+            ).all()
+        }
+        for category in ('Combos', 'Kitchen', 'Drinks'):
+            for sku, name, product_category, description, price, unit, image_url in demo_products:
+                if product_category != category or sku in existing_demo_skus:
+                    continue
+                db.session.add(Product(
+                    sku=sku,
+                    name=name,
+                    description=f'Demonstration sample. {description}',
+                    specifications='Sample catalog item; replace with verified business inventory.',
+                    category=product_category,
+                    selling_price=price,
+                    unit=unit,
+                    image_url=image_url,
+                    stock_quantity=20,
+                    minimum_stock=2,
+                    is_available=True,
+                ))
+                existing_demo_skus.add(sku)
+
         if AdminUser.query.filter_by(email='admin@pazurifish.local').first() is None:
             db.session.add(AdminUser(
                 email='admin@pazurifish.local',
@@ -217,30 +261,27 @@ def create_app():
                 password_hash=generate_password_hash('ChangeMe123!'),
             ))
 
-        if HeroContent.query.count() == 0:
-            db.session.add_all([
-                HeroContent(
-                    title='FRESH CATCH, DELIVERED EVERY DAY.',
-                    subtitle='FRESH FROM LAKE VICTORIA',
-                    image_url='https://images.unsplash.com/photo-1544943910-4c1dc44aab77?auto=format&fit=crop&w=1200&q=80',
-                    sort_order=0,
-                    is_published=True,
-                ),
-                HeroContent(
-                    title='FROM THE LAKE TO YOUR KITCHEN.',
-                    subtitle='HAND-PICKED DAILY',
-                    image_url='https://images.unsplash.com/photo-1559847844-5315695dadae?auto=format&fit=crop&w=1200&q=80',
-                    sort_order=1,
-                    is_published=True,
-                ),
-                HeroContent(
-                    title='FAMILY MEALS, FRESHLY PREPARED.',
-                    subtitle='PREMIUM SEAFOOD, SIMPLY SERVED',
-                    image_url='https://images.unsplash.com/photo-1535399831218-d5bd36d1a6b3?auto=format&fit=crop&w=1200&q=80',
-                    sort_order=2,
-                    is_published=True,
-                ),
-            ])
+        demo_hero_slides = [
+            ('Demo hero: Fresh seafood', '/images/hero-seafood.png'),
+            ('Demo hero: Fresh fish', '/images/products/fresh-fish.jpg'),
+            ('Demo hero: Nile perch', '/images/products/nile-perch.jpg'),
+            ('Demo hero: Fish cuts', '/images/products/fish-cuts.jpg'),
+            ('Demo hero: Family combo', '/images/products/family-combo.jpg'),
+            ('Demo hero: Fish and chips', '/images/products/fish-and-chips.jpg'),
+        ]
+        existing_hero_slides = HeroContent.query.all()
+        existing_hero_titles = {slide.title for slide in existing_hero_slides}
+        next_hero_order = max((slide.sort_order or 0 for slide in existing_hero_slides), default=-1) + 1
+        for image_index, (title, image_url) in enumerate(demo_hero_slides):
+            if title in existing_hero_titles:
+                continue
+            db.session.add(HeroContent(
+                title=title,
+                subtitle='FRESH FROM LAKE VICTORIA',
+                image_url=image_url,
+                sort_order=next_hero_order + image_index,
+                is_published=True,
+            ))
 
         if Offer.query.count() == 0:
             first_product = Product.query.first()

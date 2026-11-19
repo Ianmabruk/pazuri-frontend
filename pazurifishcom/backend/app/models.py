@@ -38,6 +38,7 @@ class Product(db.Model):
             'stock_quantity': self.stock_quantity,
             'minimum_stock': self.minimum_stock,
             'is_available': self.is_available,
+            'demo_only': bool(self.sku and self.sku.startswith('DEMO-')),
             'image': self.image_url,
         }
 
