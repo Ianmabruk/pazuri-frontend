@@ -146,6 +146,13 @@ export default function CategoryShopPage() {
       </header>
 
       <main className="category-shop-main">
+        <nav className="shop-category-nav" aria-label="Product categories">
+          {categories.map((category) => (
+            <button key={category.name} type="button" className={category.name === categoryName ? 'active' : ''} onClick={() => navigate(`/shop/${categorySlugFor(category.name)}`)}>
+              {category.name}
+            </button>
+          ))}
+        </nav>
         <div className="category-shop-heading"><h1>{categoryName}</h1></div>
         <div className="category-image-gallery" aria-label={`${categoryName} gallery`}>
           {(CATEGORY_GALLERY[categorySlug || ''] || []).map((image) => (
@@ -154,13 +161,6 @@ export default function CategoryShopPage() {
             </figure>
           ))}
         </div>
-        <nav className="shop-category-nav" aria-label="Product categories">
-          {categories.map((category) => (
-            <button key={category.name} type="button" className={category.name === categoryName ? 'active' : ''} onClick={() => navigate(`/shop/${categorySlugFor(category.name)}`)}>
-              {category.name}
-            </button>
-          ))}
-        </nav>
 
         {loading ? <div className="empty-state" role="status"><p>Loading products…</p></div> : error ? (
           <div className="empty-state" role="alert"><p>{error}</p></div>
@@ -183,9 +183,12 @@ export default function CategoryShopPage() {
                   {product.demo_only ? <p className="demo-product-note">Demonstration sample</p> : null}
                   <p className="shop-product-description">{product.description}</p>
                   <div className="price-row"><strong>{formatKsh(Number(product.price ?? product.selling_price ?? 0))}</strong></div>
-                  <button type="button" className="add-cart-button" onClick={() => addToCart(product)} disabled={product.is_available === false || Number(product.stock_quantity ?? 0) <= 0}>
-                    {recentlyAddedId === product.id ? 'Added to Basket' : 'Add to Cart'} <ShoppingBasket size={15} />
-                  </button>
+                  <div className="product-card-actions">
+                    <button type="button" className="view-product-button" onClick={() => navigate(`/products/${product.id}`)}>View Product</button>
+                    <button type="button" className="add-cart-button" onClick={() => addToCart(product)} disabled={product.is_available === false || Number(product.stock_quantity ?? 0) <= 0}>
+                      {recentlyAddedId === product.id ? 'Added to Basket' : 'Add to Cart'} <ShoppingBasket size={15} />
+                    </button>
+                  </div>
                 </div>
               </article>
             ))}

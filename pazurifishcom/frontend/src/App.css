@@ -1670,6 +1670,33 @@ main {
 .bottom-promo{position:relative;width:min(1280px,calc(100% - 48px));height:250px;margin:48px auto 0;border-radius:22px;overflow:hidden;background:linear-gradient(110deg,#07559a 0%,#0873aa 70%,#54afd0 100%)}.bottom-promo-copy{position:relative;z-index:2;width:48%;padding:44px 0 38px 42px;color:#fff}.bottom-promo-copy .section-kicker{color:#ffd978}.bottom-promo-copy h2{margin:0 0 10px;font-size:2.3rem}.bottom-promo-copy>p:not(.section-kicker){max-width:430px;margin:0 0 18px;color:rgba(255,255,255,.86);font-size:.82rem}.bottom-promo-copy a{display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 16px;border-radius:999px;background:var(--yellow);color:var(--navy);font-size:.76rem;font-weight:800}.bottom-promo>img{position:absolute;right:-35px;bottom:-70px;width:57%;height:140%;object-fit:cover;border-radius:50% 0 0 50%}
 .freshco-footer{width:100%;grid-template-columns:1.4fr .7fr 1.2fr .6fr;margin-top:48px;padding:40px max(24px,calc((100% - 1280px)/2)) 74px;background:#f8fafb}.freshco-footer .horizontal-brand-copy strong{font-size:1.05rem}.freshco-footer .horizontal-brand-symbol{width:48px;height:48px}.social-links{display:flex;gap:8px}.social-links a{width:38px;height:38px;border:1px solid var(--border);border-radius:50%;display:grid;place-items:center;color:var(--navy)}.copyright-bar{grid-column:1/-1;margin:20px calc(-1 * max(24px,calc((100% - 1280px)/2))) 0;padding:16px max(24px,calc((100% - 1280px)/2));border-top:1px solid var(--border)}.copyright-bar div{display:flex;gap:20px}
 @media (max-width:980px){.storefront-topbar{width:calc(100% - 32px)}.storefront-topbar .main-nav{display:none}.header-search{width:210px}.freshco-hero{width:calc(100% - 32px);grid-template-columns:55% 45%;min-height:390px;padding-left:36px}.freshco-hero-image{width:55%}.category-section,.promotion-cards,.featured-section,.testimonials-section,.deals-section,.bottom-promo{width:calc(100% - 32px)}.featured-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.deals-layout{grid-template-columns:1fr}.deal-feature-card{height:260px}.freshco-footer{grid-template-columns:1fr 1fr}}
+.freshco-hero{display:block;width:100%;min-height:520px;margin:0;border-radius:0;padding:0;background:#071d2c}
+.freshco-hero::after{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,rgba(7,29,44,.78) 0%,rgba(7,29,44,.28) 58%,rgba(7,29,44,.12) 100%)}
+.freshco-hero-images{position:absolute;inset:0;z-index:0;overflow:hidden}
+.freshco-hero-images .hero-slide{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;opacity:0;transform:scale(1.02);transition:opacity .65s ease,transform 2.8s ease}
+.freshco-hero-images .hero-slide.active{opacity:1;transform:scale(1)}
+.freshco-hero-copy{position:absolute;z-index:3;left:clamp(24px,8vw,110px);top:50%;transform:translateY(-50%);max-width:780px;margin:0;text-align:left}
+.hero-animated-line{margin:0;color:#fff}
+.hero-animated-line span{display:inline-block;margin-right:.18em;opacity:0;transform:translateY(12px);animation:hero-word-in .55s ease forwards}
+.hero-line-one{margin-bottom:12px;color:#ffd978;font-size:clamp(.9rem,1.5vw,1.15rem);font-weight:800;letter-spacing:.04em}
+.hero-line-two{max-width:760px;font-size:clamp(3rem,6vw,6.2rem);line-height:.92;letter-spacing:-.055em;text-transform:capitalize}
+.freshco-hero .hero-dots{z-index:4}
+.freshco-hero .hero-slider-controls{z-index:4}
+.product-card-actions,.deal-card-actions,.detail-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.view-product-button,.buy-now-button{min-height:44px;border:1px solid #cbdde8;border-radius:12px;background:#fff;color:#07559a;font-weight:800}
+.buy-now-button{border-color:#07559a;background:#07559a;color:#fff}
+.weekly-deals-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:18px}
+.weekly-deal-card{position:relative;min-width:0;overflow:hidden;border:1px solid var(--border);border-radius:18px;background:#fff}
+.weekly-deal-card>img{width:100%;height:220px;object-fit:cover}
+.weekly-deal-copy{position:relative;padding:16px}
+.weekly-deal-copy h3{margin:10px 0 6px;font-size:1.05rem}
+.weekly-deal-copy p{min-height:44px;margin:0;color:var(--secondary);font-size:.82rem}
+.detail-quantity{display:grid;grid-template-columns:44px 52px 44px;align-items:center;margin:16px 0}
+.detail-quantity button{width:44px;height:44px;border:1px solid var(--border);background:#fff;color:var(--navy);font-size:1.2rem}
+.detail-quantity span{text-align:center;font-weight:800}
+.detail-actions{grid-template-columns:1fr 1fr;max-width:420px}
+@keyframes hero-word-in{to{opacity:1;transform:translateY(0)}}
+
 @media (max-width:760px){.announcement-bar{height:30px;font-size:.68rem}.storefront-topbar{width:calc(100% - 24px);min-height:68px}.horizontal-brand-symbol{width:54px;height:54px}.horizontal-brand-copy strong{font-size:.92rem}.horizontal-brand-copy small{font-size:.56rem}.storefront-topbar .topbar-actions{margin-left:auto}.storefront-topbar .icon-button:first-child{display:none}.freshco-hero{width:calc(100% - 24px);min-height:520px;margin-top:12px;display:flex;align-items:flex-end;padding:38px 24px 42px}.freshco-hero-copy{align-self:flex-start}.freshco-hero-copy h1{font-size:2.55rem}.freshco-hero-copy .hero-description{font-size:.86rem}.freshco-hero-image{width:100%;height:58%;right:0;bottom:0}.freshco-hero-image img{border-radius:42% 42% 24px 24px}.freshco-hero .hero-dots{display:none}.category-section,.promotion-cards,.featured-section,.testimonials-section,.deals-section,.bottom-promo{width:calc(100% - 24px)}.category-section{margin-top:28px}.category-carousel{grid-auto-columns:128px}.category-card{height:138px}.promotion-cards{grid-template-columns:1fr}.promotion-card{height:195px}.featured-section{margin-top:38px}.featured-toolbar{display:block;margin-top:14px}.featured-toolbar .category-tabs{flex-wrap:nowrap;overflow-x:auto}.featured-grid{display:flex;overflow-x:auto;scroll-snap-type:x mandatory}.freshco-product-card{flex:0 0 72%;scroll-snap-align:start}.testimonials-section{padding-inline:8px}.testimonials-section blockquote{font-size:1rem}.testimonial-arrows{display:none}.deals-list{grid-template-columns:1fr}.deal-feature-card{height:230px}.bottom-promo{height:390px}.bottom-promo-copy{width:100%;padding:28px 24px}.bottom-promo>img{width:100%;height:62%;right:0;bottom:-50px}.freshco-footer{grid-template-columns:1fr 1fr;padding:34px 24px 90px}.freshco-footer .footer-brand,.freshco-footer .footer-actions{grid-column:1/-1}.copyright-bar{padding:14px 24px 80px!important;flex-direction:column;align-items:flex-start}.copyright-bar div{gap:12px}.copyright-bar{margin:18px -24px 0!important}.mobile-nav{display:flex}}
 @media (max-width:760px){
   .admin-shell-layout{grid-template-columns:1fr}
@@ -1909,8 +1936,26 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .featured-subheading{margin:8px 0 0;color:var(--secondary);font-size:1rem;font-weight:700}
 .category-home-button{display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:var(--navy)}
 .category-home-button:hover{background:#f4f7f9}
+.category-image-gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}
+.category-image-gallery figure{height:220px;margin:0;overflow:hidden;border-radius:16px;background:#f4f7f9}
+.category-image-gallery img{width:100%;height:100%;object-fit:cover}
 
 @media (max-width:760px){
+  .category-image-gallery{gap:6px;margin:12px 0}
+  .category-image-gallery figure{height:112px;border-radius:10px}
+  .featured-subheading,.featured-view-all{display:none}
+  .featured-grid .freshco-product-card:nth-child(n+5){display:none}
+  .featured-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .freshco-hero{min-height:520px}
+  .freshco-hero::after{background:linear-gradient(180deg,rgba(7,29,44,.18),rgba(7,29,44,.72))}
+  .freshco-hero-copy{left:20px;right:20px;top:48%;max-width:none}
+  .hero-line-one{font-size:.82rem}
+  .hero-line-two{font-size:clamp(2.25rem,11vw,3.4rem);line-height:.96}
+  .product-card-actions,.deal-card-actions{grid-template-columns:1fr}
+  .view-product-button,.buy-now-button,.add-cart-button{font-size:.72rem}
+  .weekly-deals-grid{grid-template-columns:1fr}
+  .weekly-deal-card>img{height:190px}
+  .detail-actions{grid-template-columns:1fr}
   .storefront-topbar{width:calc(100% - 24px)}
   .storefront-topbar .pazuri-brand-copy,
   .storefront-topbar .header-search{display:none}

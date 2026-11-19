@@ -5,7 +5,7 @@ import App from './App'
 import { clearApiCache } from './storefront/shared'
 
 const addLiveTilapiaProductToBasket = async (user: ReturnType<typeof userEvent.setup>) => {
-  await screen.findByText('Fresh Tilapia Special')
+  await screen.findByRole('heading', { name: 'Fresh Whole Tilapia' })
   const featuredSection = document.getElementById('shop')
   if (!featuredSection) throw new Error('Expected the featured products section.')
   const productCard = within(featuredSection).getByRole('heading', { name: 'Fresh Whole Tilapia' }).closest('article')
@@ -36,12 +36,10 @@ describe('Pazuri Fish storefront', () => {
   it('renders homepage sections in the requested order without testimonials', () => {
     render(<App />)
 
-    expect(screen.getByText('Fresh Catch Delivered Every Day')).toBeInTheDocument()
-    const heroImage = screen.getByAltText('Fresh seafood from Pazuri Fish')
-    expect(heroImage).toHaveAttribute('src', '/images/hero-seafood-1000.webp')
-    expect(heroImage).toHaveAttribute('srcset', '/images/hero-seafood-640.webp 640w, /images/hero-seafood-1000.webp 1000w')
-    expect(heroImage).toHaveAttribute('width', '1000')
-    expect(heroImage).toHaveAttribute('height', '667')
+    expect(document.querySelector('.hero-line-one')?.textContent?.replace(/\\s+/g, '')).toBe("SourcedfromLakeVictoria'swaters")
+    expect(document.querySelector('.hero-line-two')?.textContent?.replace(/\\s+/g, '')).toBe('Freshcatchdeliveredeveryday')
+    expect(document.querySelectorAll('.hero-slide')).toHaveLength(6)
+    expect(document.querySelectorAll('.hero-dot')).toHaveLength(6)
     for (const category of ['Fish Butchery', 'Combos', 'Kitchen', 'Drinks']) {
       expect(screen.getByRole('button', { name: category })).toBeInTheDocument()
     }
@@ -106,14 +104,14 @@ describe('Pazuri Fish storefront', () => {
     const { unmount } = render(<App />)
     try {
       expect(await screen.findByRole('button', { name: 'Show slide 6' })).toBeInTheDocument()
-      expect(document.querySelector('.freshco-hero-image img')).toHaveAttribute('src', '/images/hero-seafood-1000.webp')
+      expect(document.querySelector('.hero-slide.active')).toHaveAttribute('src', '/images/products/fresh-fish-1000.webp')
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(2500)
+        await vi.advanceTimersByTimeAsync(2000)
       })
 
       expect(document.querySelector('.hero-dot.active')).toHaveAttribute('aria-label', 'Show slide 2')
-      expect(document.querySelector('.freshco-hero-image img')).toHaveAttribute('src', '/images/products/fresh-fish-1000.webp')
+      expect(document.querySelector('.hero-slide.active')).toHaveAttribute('src', '/images/categories/combos/family-feast.jpg')
     } finally {
       unmount()
       vi.useRealTimers()
@@ -145,7 +143,7 @@ describe('Pazuri Fish storefront', () => {
     const user = userEvent.setup()
     render(<App />)
 
-    await screen.findByText('Fresh Tilapia Special')
+    await screen.findAllByText('Fresh Tilapia Special')
     const liveOffer = document.querySelector('.promotion-card')
     if (!(liveOffer instanceof HTMLElement)) throw new Error('Expected the live tilapia offer card.')
     await user.click(within(liveOffer).getByRole('button', { name: /add to cart/i }))

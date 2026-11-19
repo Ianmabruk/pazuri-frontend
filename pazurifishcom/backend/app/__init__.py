@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta
 
 from flask import Flask, jsonify
 from flask_cors import CORS
@@ -323,6 +324,34 @@ def create_app():
                     is_published=True,
                 ),
             ])
+
+        active_deals = [
+            ('Fresh Tilapia Special', 'A fresh lake tilapia special for everyday family meals.', 'Fish Butchery', 850, 760, '/images/products/fresh-fish.jpg'),
+            ('Family Seafood Combo', 'A generous seafood combo prepared for sharing.', 'Combos', 2400, 2100, '/images/categories/combos/family-feast.jpg'),
+            ('Seafood Kitchen Meal Deal', 'A satisfying prepared seafood meal with a choice of sides.', 'Kitchen', 1450, 1250, '/images/categories/kitchen/grilled-tilapia.jpg'),
+        ]
+        deal_now = datetime.utcnow()
+        deal_expiry = deal_now + timedelta(days=30)
+        for deal_index, (title, description, category_name, original_price, promo_price, image_url) in enumerate(active_deals):
+            if Offer.query.filter_by(title=title).first():
+                continue
+            product = Product.query.filter(db.func.lower(Product.category) == category_name.lower()).first()
+            db.session.add(Offer(
+                product_id=product.id if product else None,
+                title=title,
+                description=description,
+                image_url=image_url,
+                badge=f'DEAL {deal_index + 1}',
+                discount_type='percentage',
+                discount_value=round((1 - promo_price / original_price) * 100),
+                original_price=original_price,
+                promo_price=promo_price,
+                start_date=deal_now,
+                expiry_date=deal_expiry,
+                cta_label='View Deal',
+                cta_url='#deals',
+                is_published=True,
+            ))
 
         if Category.query.count() == 0:
             default_categories = [
