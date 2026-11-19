@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   ArrowRight,
   ChevronLeft,
@@ -19,7 +19,7 @@ import { FaFacebookF, FaInstagram, FaTiktok } from 'react-icons/fa6'
 import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import './App.css'
 import PazuriBrand from './components/PazuriBrand/PazuriBrand.jsx'
-import { DEMO_FEATURED_PRODUCTS, DEMO_OFFERS } from './storefront/demoCatalog'
+import { DEMO_OFFERS } from './storefront/demoCatalog'
 import {
   apiUrl,
   categorySlugFor,
@@ -98,6 +98,7 @@ function StorefrontPage() {
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
   const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null)
+  const featuredProductsRef = useRef<HTMLDivElement>(null)
 
   const hero = heroSlides[heroIndex] ?? defaultHero
   const resolvedHeroImageUrl = localImage(hero.image_url, defaultHero.image_url)
@@ -203,19 +204,14 @@ function StorefrontPage() {
 
   const featuredProducts = useMemo(() => {
     const featuredOrder = ['fresh whole tilapia', 'fresh nile perch', 'tilapia fillet', 'family fish combo']
-    const liveProducts = products
-      .filter((product) => product.is_available !== false && Number(product.stock_quantity ?? 0) > 0)
+    return products
+      .filter((product) => !product.demo_only && product.is_available !== false && Number(product.stock_quantity ?? 0) > 0)
       .sort((left, right) => {
         const leftIndex = featuredOrder.indexOf(left.name.toLowerCase())
         const rightIndex = featuredOrder.indexOf(right.name.toLowerCase())
         return (leftIndex < 0 ? featuredOrder.length : leftIndex) - (rightIndex < 0 ? featuredOrder.length : rightIndex)
       })
       .slice(0, 4)
-    const liveNames = new Set(liveProducts.map((product) => product.name.toLowerCase()))
-    const demos = DEMO_FEATURED_PRODUCTS
-      .filter((product) => !liveNames.has(product.name.toLowerCase()))
-      .slice(0, Math.max(0, 4 - liveProducts.length))
-    return [...liveProducts, ...demos]
   }, [products])
 
   const visibleProducts = useMemo(() => {
@@ -227,6 +223,27 @@ function StorefrontPage() {
       return matchesCategory && matchesQuery
     })
   }, [featuredProducts, products, query, selectedCategory, showAllProducts])
+
+  useEffect(() => {
+    const cards = featuredProductsRef.current?.querySelectorAll<HTMLElement>('.featured-product-row')
+    if (!cards) return
+
+    if (typeof IntersectionObserver === 'undefined') {
+      cards.forEach((card) => card.classList.add('is-visible'))
+      return
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return
+        entry.target.classList.add('is-visible')
+        observer.unobserve(entry.target)
+      })
+    }, { threshold: 0.12 })
+    cards.forEach((card) => observer.observe(card))
+
+    return () => observer.disconnect()
+  }, [visibleProducts])
 
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + Number(item.price ?? item.selling_price ?? 0) * item.quantity, 0), [cart])
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0)
@@ -473,30 +490,38 @@ function StorefrontPage() {
           {visibleProducts.length === 0 ? (
             <div className="empty-state"><p>No products match your search just yet.</p><button type="button" className="brand-action-button" onClick={() => { setQuery(''); setShowAllProducts(false) }}>Clear Search</button></div>
           ) : (
-            <div className="featured-grid">
-              {visibleProducts.map((product) => (
-                <article key={product.id} className="freshco-product-card">
+            <div className="featured-grid featured-product-list" ref={featuredProductsRef}>
+              {visibleProducts.map((product) => {
+                const productOffer = liveOfferCards.find((offer) => offer.product.id === product.id)
+                const currentPrice = Number(product.price ?? product.selling_price ?? 0)
+                const originalPrice = Number(productOffer?.original_price ?? 0)
+                const discount = originalPrice > currentPrice
+                  ? Math.round((1 - currentPrice / originalPrice) * 100)
+                  : 0
+
+                return (
+                <article key={product.id} className="freshco-product-card featured-product-row">
                   <div className="availability-row"><span>{product.demo_only ? 'Demo Preview' : Number(product.stock_quantity ?? 0) > 0 ? 'In Stock' : 'Out of Stock'}</span></div>
-                  {product.demo_only ? (
-                    <div className="product-image-button product-image-static">
-                      <StorefrontImage source={product.image_url || product.image} alt={product.name} fallback={defaultHero.image_url} sizes="(max-width: 760px) 72vw, (max-width: 980px) 30vw, 25vw" />
-                    </div>
-                  ) : (
-                    <button type="button" className="product-image-button" onClick={() => navigate(`/products/${product.id}`)}>
-                      <StorefrontImage source={product.image_url || product.image} alt={product.name} fallback={defaultHero.image_url} sizes="(max-width: 760px) 72vw, (max-width: 980px) 30vw, 25vw" />
-                    </button>
-                  )}
+                  <button type="button" className="product-image-button" onClick={() => navigate(`/products/${product.id}`)} aria-label={`View ${product.name}`}>
+                    <StorefrontImage source={product.image_url || product.image} alt={product.name} fallback={defaultHero.image_url} sizes="(max-width: 760px) 38vw, 44vw" />
+                  </button>
                   <div className="freshco-product-info">
-                    <h3>{product.name}</h3><p>{product.unit}</p>
-                    {product.demo_only ? <p className="demo-product-note">Demonstration item · not in the live catalog</p> : null}
-                    <div className="price-row"><strong>{formatKsh(Number(product.price ?? product.selling_price ?? 0))}</strong></div>
+                    <h3>{product.name}</h3>
+                    <p className="shop-product-description">{product.description}</p>
+                    <p className="featured-product-unit">{product.unit}</p>
+                    <div className="price-row">
+                      <strong>{formatKsh(currentPrice)}</strong>
+                      {originalPrice > currentPrice ? <del>{formatKsh(originalPrice)}</del> : null}
+                      {discount > 0 ? <span className="promotion-discount">{discount}% off</span> : null}
+                    </div>
                     <div className="product-card-actions">
-                      <button type="button" className="view-product-button" onClick={() => product.id > 0 ? navigate(`/products/${product.id}`) : navigate(product.category === 'Combos' ? '/shop/combos' : product.category === 'Kitchen' ? '/shop/kitchen' : product.category === 'Drinks' ? '/shop/drinks' : '/shop/fish-butchery')}>View Product</button>
+                      <button type="button" className="view-product-button" onClick={() => navigate(`/products/${product.id}`)}>View Product</button>
                       <button type="button" className="add-cart-button" onClick={() => addToCart(product)} disabled={product.is_available === false || Number(product.stock_quantity ?? 0) <= 0}>{recentlyAddedId === product.id ? 'Added to Basket' : 'Add to Cart'} <ShoppingBasket size={15} /></button>
                     </div>
                   </div>
                 </article>
-              ))}
+                )
+              })}
             </div>
           )}
         </section>
@@ -1188,6 +1213,7 @@ function ProductDetailPage() {
   const navigate = useNavigate()
   const [product, setProduct] = useState<Product | null>(null)
   const [error, setError] = useState('')
+  const [actionError, setActionError] = useState('')
   const [detailQuantity, setDetailQuantity] = useState(1)
 
   useEffect(() => {
@@ -1225,22 +1251,38 @@ function ProductDetailPage() {
   if (!product) return <div className="product-detail-page"><p className="product-detail-empty">Loading product…</p></div>
 
   const addProductToBasket = () => {
-    if (product.is_available === false || Number(product.stock_quantity ?? 0) <= 0) return
-    const cart = JSON.parse(localStorage.getItem('pazuri-cart-v1') || '[]') as CartItem[]
+    setActionError('')
+    if (product.is_available === false || Number(product.stock_quantity ?? 0) <= 0) {
+      setActionError(`${product.name} is currently unavailable.`)
+      return false
+    }
+    let cart: CartItem[]
+    try {
+      const savedCart: unknown = JSON.parse(localStorage.getItem('pazuri-cart-v1') || '[]')
+      if (!Array.isArray(savedCart)) throw new Error('Saved basket is not a list.')
+      cart = savedCart as CartItem[]
+    } catch (loadError) {
+      console.error('Unable to update the saved basket.', loadError)
+      setActionError('Unable to update your basket. Please refresh and try again.')
+      return false
+    }
     const existing = cart.find((entry) => entry.id === product.id)
     if (existing) {
       const available = Number(product.stock_quantity ?? 0)
-      if (available > 0 && existing.quantity + detailQuantity > available) return
+      if (available > 0 && existing.quantity + detailQuantity > available) {
+        setActionError(`Only ${available} units of ${product.name} are available.`)
+        return false
+      }
       existing.quantity += detailQuantity
     } else {
       cart.push({ ...product, quantity: detailQuantity, price: Number(product.price ?? product.selling_price ?? 0), image: localImage(product.image_url || product.image) })
     }
     localStorage.setItem('pazuri-cart-v1', JSON.stringify(cart))
+    return true
   }
 
   const buyProductNow = () => {
-    addProductToBasket()
-    navigate('/#checkout')
+    if (addProductToBasket()) navigate('/#checkout')
   }
 
   return (
@@ -1264,6 +1306,7 @@ function ProductDetailPage() {
             <button type="button" className="primary-button" onClick={addProductToBasket} disabled={product.is_available === false || Number(product.stock_quantity ?? 0) <= 0}>Add to Cart</button>
             <button type="button" className="buy-now-button" onClick={buyProductNow} disabled={product.is_available === false || Number(product.stock_quantity ?? 0) <= 0}>Buy Now</button>
           </div>
+          {actionError ? <p className="product-action-error" role="alert">{actionError}</p> : null}
         </div>
       </main>
     </div>

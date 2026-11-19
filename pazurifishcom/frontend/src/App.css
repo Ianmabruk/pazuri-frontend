@@ -1936,18 +1936,143 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .featured-subheading{margin:8px 0 0;color:var(--secondary);font-size:1rem;font-weight:700}
 .category-home-button{display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:var(--navy)}
 .category-home-button:hover{background:#f4f7f9}
-.category-image-gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}
-.category-image-gallery figure{height:220px;margin:0;overflow:hidden;border-radius:16px;background:#f4f7f9}
-.category-image-gallery img{width:100%;height:100%;object-fit:cover}
-
 @media (max-width:760px){
-  .category-image-gallery{gap:6px;margin:12px 0}
-  .category-image-gallery figure{height:112px;border-radius:10px}
   .featured-subheading,.featured-view-all{display:none}
-  .featured-grid .freshco-product-card:nth-child(n+5){display:none}
-  .featured-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .freshco-hero{min-height:520px}
   .freshco-hero::after{background:linear-gradient(180deg,rgba(7,29,44,.18),rgba(7,29,44,.72))}
+
+  .featured-product-list{display:flex;flex-direction:column;gap:18px;overflow:visible}
+  .featured-product-row{
+    position:relative;
+    display:grid;
+    grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);
+    grid-template-rows:minmax(260px,1fr);
+    min-width:0;
+    min-height:286px;
+    overflow:hidden;
+    border:1px solid rgba(7,85,154,.1);
+    border-radius:24px;
+    background:linear-gradient(100deg,rgba(239,247,250,.88),rgba(255,255,255,.98) 66%);
+    box-shadow:0 16px 34px rgba(7,29,44,.07);
+    opacity:0;
+    transform:translateY(14px);
+    transition:opacity .55s ease,transform .55s ease,box-shadow .25s ease;
+  }
+  .featured-product-row.is-visible{opacity:1;transform:translateY(0)}
+  .featured-product-row:hover{box-shadow:0 20px 40px rgba(7,29,44,.11)}
+  .featured-product-row .availability-row{
+    position:relative;
+    z-index:3;
+    grid-column:1;
+    grid-row:1;
+    align-self:start;
+    justify-content:flex-start;
+    height:auto;
+    padding:22px 0 0 26px;
+    color:#4b6952;
+  }
+  .featured-product-row .product-image-button{
+    position:relative;
+    z-index:1;
+    grid-column:1;
+    grid-row:1;
+    width:calc(100% + 50px);
+    height:auto;
+    min-height:250px;
+    margin:18px 0 18px 18px;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,.74);
+    border-radius:20px 40px 40px 20px;
+    background:rgba(255,255,255,.5);
+    box-shadow:0 14px 30px rgba(7,29,44,.1),inset 0 1px 0 rgba(255,255,255,.8);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+  }
+  .featured-product-row .product-image-button::after{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    background:linear-gradient(90deg,rgba(255,255,255,0) 48%,rgba(255,255,255,.26) 67%,rgba(255,255,255,.88) 100%);
+    content:"";
+  }
+  .featured-product-row .product-image-button img{
+    width:100%;
+    height:100%;
+    min-height:250px;
+    padding:16px;
+    object-fit:contain;
+  }
+  .featured-product-row .freshco-product-info{
+    position:relative;
+    z-index:2;
+    grid-column:2;
+    grid-row:1;
+    min-width:0;
+    align-self:stretch;
+    justify-content:center;
+    padding:34px 30px 28px 20px;
+    background:linear-gradient(90deg,rgba(255,255,255,.68),#fff 24%);
+  }
+  .featured-product-row .freshco-product-info h3{
+    overflow-wrap:anywhere;
+    font-size:clamp(1.15rem,2vw,1.65rem);
+  }
+  .featured-product-row .shop-product-description{
+    display:-webkit-box;
+    overflow:hidden;
+    margin:4px 0 0!important;
+    color:var(--secondary);
+    font-size:.9rem;
+    line-height:1.55;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+  }
+  .featured-product-unit{margin-top:5px!important}
+  .featured-product-row .price-row{gap:10px;flex-wrap:wrap;margin:15px 0}
+  .featured-product-row .price-row strong{font-size:1.35rem}
+  .featured-product-row .price-row del{color:var(--secondary);font-size:.86rem}
+  .featured-product-row .product-card-actions{max-width:420px}
+  .featured-product-row .view-product-button,.featured-product-row .add-cart-button{min-width:0}
+
+  @media (max-width:760px){
+    .featured-product-list{gap:12px}
+    .featured-product-row{
+      grid-template-columns:minmax(0,.62fr) minmax(0,1fr);
+      grid-template-rows:minmax(220px,1fr);
+      min-height:242px;
+      border-radius:18px;
+    }
+    .featured-product-row .availability-row{padding:16px 0 0 17px;font-size:.62rem}
+    .featured-product-row .product-image-button{
+      width:calc(100% + 28px);
+      min-height:204px;
+      margin:16px 0 14px 10px;
+      border-radius:15px 28px 28px 15px;
+    }
+    .featured-product-row .product-image-button img{min-height:204px;padding:8px}
+    .featured-product-row .freshco-product-info{padding:32px 12px 16px 14px}
+    .featured-product-row .freshco-product-info h3{font-size:1rem;line-height:1.2}
+    .featured-product-row .shop-product-description{font-size:.76rem;line-height:1.4}
+    .featured-product-row .featured-product-unit{font-size:.68rem}
+    .featured-product-row .price-row{gap:6px;margin:10px 0}
+    .featured-product-row .price-row strong{font-size:1rem}
+    .featured-product-row .price-row del{font-size:.72rem}
+    .featured-product-row .promotion-discount{font-size:.58rem}
+    .featured-product-row .product-card-actions{grid-template-columns:1fr;gap:6px}
+    .featured-product-row .view-product-button,.featured-product-row .add-cart-button{min-height:38px;height:auto;padding:7px;font-size:.68rem}
+  }
+
+  @media (max-width:360px){
+    .featured-product-row{grid-template-columns:minmax(0,.56fr) minmax(0,1fr)}
+    .featured-product-row .freshco-product-info{padding-right:9px;padding-left:12px}
+    .featured-product-row .freshco-product-info h3{font-size:.92rem}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .featured-product-row{opacity:1;transform:none}
+  }
+
+  .product-action-error{margin:12px 0 0;color:#a52a2a;font-weight:700}
   .freshco-hero-copy{left:20px;right:20px;top:48%;max-width:none}
   .hero-line-one{font-size:.82rem}
   .hero-line-two{font-size:clamp(2.25rem,11vw,3.4rem);line-height:.96}

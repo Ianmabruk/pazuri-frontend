@@ -58,22 +58,41 @@ def test_hero_and_offer_endpoints_expose_content():
     assert isinstance(offers_response.get_json()['offers'], list)
 
 
-def test_demo_categories_and_hero_rotation_are_seeded():
+def test_shop_categories_have_at_least_three_purchasable_products_and_hero_rotation():
     app = create_app()
     client = app.test_client()
 
     products = client.get('/api/products').get_json()['products']
-    for category in ('Combos', 'Kitchen', 'Drinks'):
+    for category in ('Fish Butchery', 'Combos', 'Kitchen', 'Drinks'):
         category_products = [product for product in products if product['category'] == category]
-        demo_products = [product for product in category_products if product['demo_only']]
-        assert len(category_products) >= 6
-        assert len(demo_products) >= 6
-        assert len({product['image_url'] for product in demo_products}) == len(demo_products)
-        assert all(product['price'] > 0 and product['image_url'] for product in category_products)
+        assert len(category_products) >= 3
+        assert all(not product['demo_only'] for product in category_products)
+        assert all(product['price'] > 0 and product['image_url'] and product['stock_quantity'] > 0 for product in category_products)
+        assert len({product['id'] for product in category_products}) == len(category_products)
 
     slides = client.get('/api/content/hero').get_json()['slides']
     assert len(slides) >= 6
     assert len({slide['image_url'] for slide in slides}) >= 6
+
+
+def test_seeded_category_products_can_be_ordered():
+    app = create_app()
+    client = app.test_client()
+    product = next(
+        product for product in client.get('/api/products').get_json()['products']
+        if product['category'] == 'Combos'
+    )
+
+    response = client.post(
+        '/api/orders',
+        json={
+            'items': [{'product_id': product['id'], 'quantity': 1}],
+            'customer': {'name': 'Jane Doe', 'phone': '+254700000001'},
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.get_json()['order']['items'][0]['product_name'] == product['name']
 
 
 def test_admin_login_requires_valid_credentials():

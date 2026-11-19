@@ -15,29 +15,6 @@ import {
   type Product,
 } from './shared'
 
-const CATEGORY_GALLERY: Record<string, Array<{ src: string; alt: string }>> = {
-  'fish-butchery': [
-    { src: '/images/categories/fish-butchery/tilapia.jpg', alt: 'Fresh tilapia selection' },
-    { src: '/images/categories/fish-butchery/nile-perch.jpg', alt: 'Nile perch cuts' },
-    { src: '/images/categories/fish-butchery/fish-cuts.jpg', alt: 'Fresh fish portions' },
-  ],
-  combos: [
-    { src: '/images/categories/combos/family-feast.jpg', alt: 'Family seafood feast' },
-    { src: '/images/categories/combos/grill-box.jpg', alt: 'Grill night seafood box' },
-    { src: '/images/categories/combos/supper-bundle.jpg', alt: 'Fish supper combo' },
-  ],
-  kitchen: [
-    { src: '/images/categories/kitchen/grilled-tilapia.jpg', alt: 'Grilled tilapia meal' },
-    { src: '/images/categories/kitchen/fish-and-chips.jpg', alt: 'Fish and chips meal' },
-    { src: '/images/categories/kitchen/pan-seared-perch.jpg', alt: 'Pan-seared Nile perch' },
-  ],
-  drinks: [
-    { src: '/images/categories/drinks/tropical-cooler.jpg', alt: 'Tropical fruit cooler' },
-    { src: '/images/categories/drinks/orange-juice.jpg', alt: 'Orange juice' },
-    { src: '/images/categories/drinks/hibiscus-cooler.jpg', alt: 'Hibiscus cooler' },
-  ],
-}
-
 export default function CategoryShopPage() {
   const { categorySlug } = useParams()
   const navigate = useNavigate()
@@ -154,13 +131,6 @@ export default function CategoryShopPage() {
           ))}
         </nav>
         <div className="category-shop-heading"><h1>{categoryName}</h1></div>
-        <div className="category-image-gallery" aria-label={`${categoryName} gallery`}>
-          {(CATEGORY_GALLERY[categorySlug || ''] || []).map((image) => (
-            <figure key={image.src}>
-              <StorefrontImage source={image.src} alt={image.alt} fallback={FALLBACK_PRODUCT_IMAGE} sizes="(max-width: 760px) 32vw, 260px" />
-            </figure>
-          ))}
-        </div>
 
         {loading ? <div className="empty-state" role="status"><p>Loading products…</p></div> : error ? (
           <div className="empty-state" role="alert"><p>{error}</p></div>
