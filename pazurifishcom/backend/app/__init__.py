@@ -210,24 +210,24 @@ def create_app():
             db.session.add_all(default_products)
 
         demo_products = [
-            ('DEMO-COMBO-01', 'Family Seafood Feast', 'Combos', 'A shareable seafood selection with fresh fish and sides.', 3200, 'per combo', '/images/products/family-combo.jpg'),
-            ('DEMO-COMBO-02', 'Tilapia and Perch Duo', 'Combos', 'A sample pairing of fresh tilapia and Nile perch.', 2800, 'per combo', '/images/products/nile-perch.jpg'),
-            ('DEMO-COMBO-03', 'Grill Night Seafood Box', 'Combos', 'A mix of grill-ready seafood portions for a family meal.', 3500, 'per box', '/images/hero-seafood.png'),
+            ('DEMO-COMBO-01', 'Family Seafood Feast', 'Combos', 'A shareable seafood selection with fresh fish and sides.', 3200, 'per combo', '/images/categories/combos/family-feast.jpg'),
+            ('DEMO-COMBO-02', 'Tilapia and Perch Duo', 'Combos', 'A sample pairing of fresh tilapia and Nile perch.', 2800, 'per combo', '/images/categories/combos/grill-box.jpg'),
+            ('DEMO-COMBO-03', 'Grill Night Seafood Box', 'Combos', 'A mix of grill-ready seafood portions for a family meal.', 3500, 'per box', '/images/categories/combos/supper-bundle.jpg'),
             ('DEMO-COMBO-04', 'Fish Supper Bundle', 'Combos', 'Fresh fish portions paired with a classic side.', 1950, 'per combo', '/images/products/fish-and-chips.jpg'),
-            ('DEMO-COMBO-05', 'Lake Catch Sharing Pack', 'Combos', 'A sample selection of Lake Victoria fish cuts to share.', 2600, 'per pack', '/images/products/fish-cuts.jpg'),
+            ('DEMO-COMBO-05', 'Lake Catch Sharing Pack', 'Combos', 'A sample selection of Lake Victoria fish cuts to share.', 2600, 'per pack', '/images/products/family-combo.jpg'),
             ('DEMO-COMBO-06', 'Weekend Seafood Mix', 'Combos', 'A varied seafood selection prepared for weekend cooking.', 3000, 'per combo', '/images/products/fresh-fish.jpg'),
-            ('DEMO-KITCHEN-01', 'Grilled Tilapia Meal', 'Kitchen', 'A freshly grilled tilapia meal, served with a choice of sides.', 1450, 'per serving', '/images/products/kitchen-meal.jpg'),
-            ('DEMO-KITCHEN-02', 'Fish and Chips', 'Kitchen', 'Crisp golden chips served with freshly prepared fish.', 1050, 'per serving', '/images/products/fish-and-chips.jpg'),
-            ('DEMO-KITCHEN-03', 'Pan-Seared Nile Perch', 'Kitchen', 'Tender Nile perch, pan-seared and served ready to enjoy.', 1650, 'per serving', '/images/products/nile-perch.jpg'),
+            ('DEMO-KITCHEN-01', 'Grilled Tilapia Meal', 'Kitchen', 'A freshly grilled tilapia meal, served with a choice of sides.', 1450, 'per serving', '/images/categories/kitchen/grilled-tilapia.jpg'),
+            ('DEMO-KITCHEN-02', 'Fish and Chips', 'Kitchen', 'Crisp golden chips served with freshly prepared fish.', 1050, 'per serving', '/images/categories/kitchen/fish-and-chips.jpg'),
+            ('DEMO-KITCHEN-03', 'Pan-Seared Nile Perch', 'Kitchen', 'Tender Nile perch, pan-seared and served ready to enjoy.', 1650, 'per serving', '/images/categories/kitchen/pan-seared-perch.jpg'),
             ('DEMO-KITCHEN-04', 'Crispy Fish Fillet Plate', 'Kitchen', 'A golden fish fillet plate prepared fresh to order.', 1250, 'per serving', '/images/products/fish-cuts.jpg'),
-            ('DEMO-KITCHEN-05', 'Seafood Rice Bowl', 'Kitchen', 'A hearty seafood bowl with seasoned rice and fresh vegetables.', 1350, 'per serving', '/images/hero-seafood.png'),
+            ('DEMO-KITCHEN-05', 'Seafood Rice Bowl', 'Kitchen', 'A hearty seafood bowl with seasoned rice and fresh vegetables.', 1350, 'per serving', '/images/products/kitchen-meal.jpg'),
             ('DEMO-KITCHEN-06', 'Family Fish Platter', 'Kitchen', 'A prepared fish platter designed for sharing.', 2400, 'per platter', '/images/products/family-combo.jpg'),
-            ('DEMO-DRINK-01', 'Tropical Fruit Cooler', 'Drinks', 'A chilled fruit cooler with a bright, tropical finish.', 280, 'per bottle', 'https://images.unsplash.com/photo-1470337458703-46ad1756a187?auto=format&fit=crop&w=900&q=80'),
-            ('DEMO-DRINK-02', 'Orange Sunrise Juice', 'Drinks', 'A bright orange juice served chilled.', 300, 'per bottle', 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?auto=format&fit=crop&w=900&q=80'),
-            ('DEMO-DRINK-03', 'Iced Hibiscus Cooler', 'Drinks', 'A refreshing hibiscus cooler with a hint of citrus.', 280, 'per glass', 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=900&q=80'),
-            ('DEMO-DRINK-04', 'Tropical Smoothie', 'Drinks', 'A smooth tropical fruit blend, served cold.', 350, 'per bottle', 'https://images.unsplash.com/photo-1553530666-ba11a7da3888?auto=format&fit=crop&w=900&q=80'),
-            ('DEMO-DRINK-05', 'Lemon Mint Cooler', 'Drinks', 'A cool lemon and mint drink for a refreshing pairing.', 280, 'per glass', 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=900&q=80'),
-            ('DEMO-DRINK-06', 'Passion Fruit Juice', 'Drinks', 'A chilled passion fruit juice with a tangy finish.', 300, 'per bottle', 'https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=900&q=80'),
+            ('DEMO-DRINK-01', 'Tropical Fruit Cooler', 'Drinks', 'A chilled fruit cooler with a bright, tropical finish.', 280, 'per bottle', '/images/categories/drinks/tropical-cooler.jpg'),
+            ('DEMO-DRINK-02', 'Orange Sunrise Juice', 'Drinks', 'A bright orange juice served chilled.', 300, 'per bottle', '/images/categories/drinks/orange-juice.jpg'),
+            ('DEMO-DRINK-03', 'Iced Hibiscus Cooler', 'Drinks', 'A refreshing hibiscus cooler with a hint of citrus.', 280, 'per glass', '/images/categories/drinks/hibiscus-cooler.jpg'),
+            ('DEMO-DRINK-04', 'Tropical Smoothie', 'Drinks', 'A smooth tropical fruit blend, served cold.', 350, 'per bottle', '/images/categories/drinks/tropical-smoothie.jpg'),
+            ('DEMO-DRINK-05', 'Lemon Mint Cooler', 'Drinks', 'A cool lemon and mint drink for a refreshing pairing.', 280, 'per glass', '/images/categories/drinks/lemon-mint.jpg'),
+            ('DEMO-DRINK-06', 'Passion Fruit Juice', 'Drinks', 'A chilled passion fruit juice with a tangy finish.', 300, 'per bottle', '/images/categories/drinks/passion-fruit.jpg'),
         ]
         existing_demo_skus = {
             sku for (sku,) in Product.query.with_entities(Product.sku).filter(

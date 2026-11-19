@@ -1891,3 +1891,41 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .checkout-order-item img{width:36px;height:36px}
 }
 
+.promotion-cards{grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))}
+.promotion-label{display:inline-flex;margin-bottom:8px;border-radius:999px;padding:5px 9px;background:rgba(255,255,255,.16);color:#fff;font-size:.62rem;font-weight:900;letter-spacing:.07em}
+.promotion-label.demo-label{background:#fff2d6;color:#633f00}
+.promotion-copy .promotion-product-name{margin:0 0 6px;font-size:.76rem;font-weight:800}
+.promotion-discount{border-radius:999px;padding:4px 7px;background:#fff2d6;color:#633f00;font-size:.66rem;font-weight:900}
+.featured-view-all{display:inline-flex;align-items:center;gap:6px;border:0;padding:8px 0;background:transparent;color:var(--blue);font-size:.82rem;font-weight:800}
+.featured-view-all:hover{color:#d78200}
+.brand-action-button{min-height:44px;border:0;border-radius:12px;padding:0 16px;background:#f7a61c;color:#182f3c;font-weight:800;transition:background-color .18s ease,transform .18s ease}
+.brand-action-button:hover{transform:translateY(-1px);background:#e9960f}
+.brand-action-button:focus-visible{outline:3px solid rgba(247,166,28,.65);outline-offset:3px}
+.demo-product-note{margin-top:5px!important;color:#8a5a00!important;font-size:.68rem!important;font-weight:700}
+.demo-cart-label{display:block;color:#8a5a00;font-size:.68rem;font-weight:700}
+.product-image-static{cursor:default}
+@media (max-width:760px){.promotion-cards{grid-template-columns:1fr}}
+
+.featured-subheading{margin:8px 0 0;color:var(--secondary);font-size:1rem;font-weight:700}
+.category-home-button{display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:var(--navy)}
+.category-home-button:hover{background:#f4f7f9}
+.category-image-gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}
+.category-image-gallery figure{height:220px;margin:0;overflow:hidden;border-radius:16px;background:#f4f7f9}
+.category-image-gallery img{width:100%;height:100%;object-fit:cover}
+
+@media (max-width:760px){
+  .category-image-gallery{gap:6px;margin:12px 0}
+  .category-image-gallery figure{height:112px;border-radius:10px}
+  .storefront-topbar{width:calc(100% - 24px)}
+  .storefront-topbar .pazuri-brand-copy,
+  .storefront-topbar .header-search{display:none}
+  .storefront-topbar .basket-button{margin-left:auto}
+  .freshco-hero{width:100%;min-height:520px;margin:0;padding:34px 22px 44px;border-radius:0}
+  .freshco-hero::before{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(7,29,44,.3),rgba(7,29,44,.72));content:"";pointer-events:none}
+  .freshco-hero-copy{z-index:3}
+  .freshco-hero-image{inset:0;width:100%;height:100%;opacity:1}
+  .freshco-hero-image:before{display:none}
+  .freshco-hero-image img{object-fit:cover;object-position:center;border-radius:0;mix-blend-mode:normal}
+  .category-shop-page .detail-topbar{justify-content:space-between}
+}
+
