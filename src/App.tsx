@@ -95,10 +95,12 @@ function StorefrontPage() {
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [checkoutForm, setCheckoutForm] = useState({ full_name: '', phone: '', location: '', instructions: '' })
   const [orderSuccess, setOrderSuccess] = useState<{ order_number?: string } | null>(null)
+  const [trackingCopied, setTrackingCopied] = useState(false)
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
   const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null)
   const featuredProductsRef = useRef<HTMLDivElement>(null)
+  const checkoutIdempotencyRef = useRef('')
 
   const hero = heroSlides[heroIndex] ?? defaultHero
   const resolvedHeroImageUrl = localImage(hero.image_url, defaultHero.image_url)
@@ -302,11 +304,17 @@ function StorefrontPage() {
 
     setCheckoutSubmitting(true)
     setCheckoutError('')
+    if (!checkoutIdempotencyRef.current) {
+      checkoutIdempotencyRef.current = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `checkout-${Date.now()}-${cart.length}`
+    }
     try {
       const response = await fetch(apiUrl('orders'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          idempotency_key: checkoutIdempotencyRef.current,
           items: cart.map((item) => ({
             product_id: item.id,
             quantity: item.quantity,
@@ -327,9 +335,10 @@ function StorefrontPage() {
       if (!response.ok) throw new Error(payload.error || 'Unable to create order.')
 
       setCart([])
+      checkoutIdempotencyRef.current = ''
       setCheckoutOpen(false)
       setCheckoutForm({ full_name: '', phone: '', location: '', instructions: '' })
-      setOrderSuccess({ order_number: typeof payload.order?.order_number === 'string' ? payload.order.order_number : undefined })
+      setOrderSuccess({ order_number: typeof payload.order?.tracking_number === 'string' ? payload.order.tracking_number : payload.order?.order_number })
       setBasketOpen(false)
     } catch (error) {
       setCheckoutError(error instanceof Error ? error.message : 'Unable to complete order.')
@@ -501,21 +510,17 @@ function StorefrontPage() {
 
                 return (
                 <article key={product.id} className="freshco-product-card featured-product-row">
-                  <div className="availability-row"><span>{product.demo_only ? 'Demo Preview' : Number(product.stock_quantity ?? 0) > 0 ? 'In Stock' : 'Out of Stock'}</span></div>
                   <button type="button" className="product-image-button" onClick={() => navigate(`/products/${product.id}`)} aria-label={`View ${product.name}`}>
                     <StorefrontImage source={product.image_url || product.image} alt={product.name} fallback={defaultHero.image_url} sizes="(max-width: 760px) 38vw, 44vw" />
                   </button>
                   <div className="freshco-product-info">
                     <h3>{product.name}</h3>
-                    <p className="shop-product-description">{product.description}</p>
-                    <p className="featured-product-unit">{product.unit}</p>
                     <div className="price-row">
                       <strong>{formatKsh(currentPrice)}</strong>
                       {originalPrice > currentPrice ? <del>{formatKsh(originalPrice)}</del> : null}
                       {discount > 0 ? <span className="promotion-discount">{discount}% off</span> : null}
                     </div>
                     <div className="product-card-actions">
-                      <button type="button" className="view-product-button" onClick={() => navigate(`/products/${product.id}`)}>View Product</button>
                       <button type="button" className="add-cart-button" onClick={() => addToCart(product)} disabled={product.is_available === false || Number(product.stock_quantity ?? 0) <= 0}>{recentlyAddedId === product.id ? 'Added to Basket' : 'Add to Cart'} <ShoppingBasket size={15} /></button>
                     </div>
                   </div>
@@ -660,14 +665,26 @@ function StorefrontPage() {
       ) : null}
 
       {orderSuccess ? (
-        <div className="checkout-success" role="status">
-          <div>
+        <div className="checkout-success-backdrop" role="dialog" aria-modal="true" aria-labelledby="order-success-heading">
+          <div className="checkout-success-modal">
+            <button type="button" className="checkout-success-close" aria-label="Close order confirmation" onClick={() => setOrderSuccess(null)}><X size={20} /></button>
             <p className="section-kicker">Order placed</p>
-            <h3>Order Successfully Placed!</h3>
-            <p>Thank you for shopping with Pazuri Fish. Your order has been received successfully.</p>
-            {orderSuccess.order_number ? <p>Your order reference is <strong>{orderSuccess.order_number}</strong>.</p> : null}
+            <h3 id="order-success-heading">Your Order Has Been Received!</h3>
+            <p>Your order has been successfully placed. Save your tracking number to follow your delivery.</p>
+            {orderSuccess.order_number ? <strong className="tracking-number-display">{orderSuccess.order_number}</strong> : null}
+            <div className="checkout-success-actions">
+              {orderSuccess.order_number ? (
+                <button type="button" className="secondary-button" onClick={async () => {
+                  await navigator.clipboard?.writeText(orderSuccess.order_number || '')
+                  setTrackingCopied(true)
+                }}>{trackingCopied ? 'Copied' : 'Copy Tracking Number'}</button>
+              ) : null}
+              <button type="button" className="primary-button" onClick={() => {
+                setOrderSuccess(null)
+                navigate(`/track/${encodeURIComponent(orderSuccess.order_number || '')}`)
+              }}>Next — Track My Order</button>
+            </div>
           </div>
-          <button type="button" onClick={() => { setOrderSuccess(null); navigate('/#shop') }} className="primary-button">Continue Shopping</button>
         </div>
       ) : null}
 
@@ -802,7 +819,7 @@ function ProductsSection() {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<HomepageCategory[]>([])
   const [editing, setEditing] = useState<Product | null>(null)
-  const [form, setForm] = useState({ name: '', description: '', category: 'Fish Butchery', selling_price: '', unit: 'per kg', image_url: '', stock_quantity: '0', minimum_stock: '0', is_available: true })
+  const [form, setForm] = useState({ name: '', description: '', specifications: '', category: 'Fish Butchery', selling_price: '', discount_price: '', unit: 'per kg', image_url: '', stock_quantity: '0', minimum_stock: '0', is_available: true, featured: false, status: 'Active', sku: '', serving_sizes: [] as string[], custom_category: '' })
 
   const load = async () => {
     const token = localStorage.getItem('pazuri-admin-token')
@@ -821,14 +838,28 @@ function ProductsSection() {
 
   const reset = () => {
     setEditing(null)
-    setForm({ name: '', description: '', category: categories[0]?.name || 'Fish Butchery', selling_price: '', unit: 'per kg', image_url: '', stock_quantity: '0', minimum_stock: '0', is_available: true })
+    setForm({ name: '', description: '', specifications: '', category: categories[0]?.name || 'Fish Butchery', selling_price: '', discount_price: '', unit: 'per kg', image_url: '', stock_quantity: '0', minimum_stock: '0', is_available: true, featured: false, status: 'Active', sku: '', serving_sizes: [], custom_category: '' })
   }
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const token = localStorage.getItem('pazuri-admin-token')
+    let category = form.category
+    if (category === 'Other') {
+      category = form.custom_category.trim()
+      if (!category) {
+        window.alert('Enter a custom category name.')
+        return
+      }
+      await fetch(apiUrl('admin/categories'), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: category, is_active: true, show_on_homepage: true, display_order: categories.length }),
+      })
+    }
     const payload = {
       ...form,
+      category,
       selling_price: Number(form.selling_price),
       stock_quantity: Number(form.stock_quantity),
       minimum_stock: Number(form.minimum_stock),
@@ -842,6 +873,7 @@ function ProductsSection() {
   }
 
   const remove = async (productId: number) => {
+    if (!window.confirm('Delete this product?')) return
     const token = localStorage.getItem('pazuri-admin-token')
     await fetch(apiUrl(`products/${productId}`), { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
     await load()
@@ -854,13 +886,41 @@ function ProductsSection() {
         <div className="offer-form-grid">
           <label><span>Name</span><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></label>
           <label><span>Category</span><select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>{categories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}</select></label>
+          {form.category === 'Other' ? (
+            <label><span>Enter Custom Category Name</span><input value={form.custom_category} onChange={(event) => setForm({ ...form, custom_category: event.target.value })} required /></label>
+          ) : null}
           <label className="wide"><span>Description</span><textarea rows={3} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} required /></label>
+          <label className="wide"><span>Specifications</span><textarea rows={2} value={form.specifications} onChange={(event) => setForm({ ...form, specifications: event.target.value })} /></label>
+          <label><span>SKU</span><input value={form.sku} onChange={(event) => setForm({ ...form, sku: event.target.value })} /></label>
           <label><span>Price (KSh)</span><input type="number" min="0" value={form.selling_price} onChange={(event) => setForm({ ...form, selling_price: event.target.value })} required /></label>
+          <label><span>Discount price (optional)</span><input type="number" min="0" value={form.discount_price} onChange={(event) => setForm({ ...form, discount_price: event.target.value })} /></label>
           <label><span>Unit</span><input value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} required /></label>
-          <label className="wide"><span>Image URL</span><input value={form.image_url} onChange={(event) => setForm({ ...form, image_url: event.target.value })} /><span>Or upload</span><input type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadAdminImage(file).then((url) => setForm((current) => ({ ...current, image_url: url }))).catch((error) => window.alert(error instanceof Error ? error.message : 'Upload failed')) }} /></label>
+          <label className="wide"><span>Product Image</span>{form.image_url ? <img className="admin-image-preview" src={localImage(form.image_url)} alt="Product preview" /> : null}<input type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadAdminImage(file).then((url) => setForm((current) => ({ ...current, image_url: url }))).catch((error) => window.alert(error instanceof Error ? error.message : 'Upload failed')) }} /></label>
           <label><span>Stock</span><input type="number" min="0" value={form.stock_quantity} onChange={(event) => setForm({ ...form, stock_quantity: event.target.value })} /></label>
           <label><span>Minimum stock</span><input type="number" min="0" value={form.minimum_stock} onChange={(event) => setForm({ ...form, minimum_stock: event.target.value })} /></label>
           <label><span>Availability</span><select value={form.is_available ? 'yes' : 'no'} onChange={(event) => setForm({ ...form, is_available: event.target.value === 'yes' })}><option value="yes">Available</option><option value="no">Unavailable</option></select></label>
+          <label><span>Status</span><select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}><option value="Active">Active</option><option value="Draft">Draft</option><option value="Out of Stock">Out of Stock</option></select></label>
+          <label><span>Featured product</span><select value={form.featured ? 'yes' : 'no'} onChange={(event) => setForm({ ...form, featured: event.target.value === 'yes' })}><option value="no">No</option><option value="yes">Yes</option></select></label>
+          {form.category === 'Kitchen' ? (
+            <fieldset className="wide serving-admin-fieldset">
+              <legend>Serving sizes</legend>
+              {['1 Person', '2–3 People', '4–5 People', '6–7 People'].map((size) => (
+                <label key={size}>
+                  <input
+                    type="checkbox"
+                    checked={form.serving_sizes.includes(size)}
+                    onChange={(event) => setForm((current) => ({
+                      ...current,
+                      serving_sizes: event.target.checked
+                        ? [...current.serving_sizes, size]
+                        : current.serving_sizes.filter((item) => item !== size),
+                    }))}
+                  />
+                  <span>{size}</span>
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
         </div>
         <div className="offer-form-actions"><button type="submit" className="primary-button">{editing ? 'Save product' : 'Create product'}</button>{editing && <button type="button" onClick={reset}>Cancel</button>}</div>
       </form>
@@ -868,7 +928,7 @@ function ProductsSection() {
         <article className="mini-offer admin-mini-offer" key={product.id}>
           <img src={localImage(product.image_url || product.image)} alt="" />
           <div><h4>{product.name}</h4><p>{product.category} · {formatKsh(Number(product.selling_price || product.price || 0))} · Stock {product.stock_quantity}</p></div>
-          <div className="admin-mini-actions"><button type="button" onClick={() => { setEditing(product); setForm({ name: product.name, description: product.description, category: product.category, selling_price: String(product.selling_price || product.price || 0), unit: product.unit, image_url: product.image_url || '', stock_quantity: String(product.stock_quantity || 0), minimum_stock: String(product.minimum_stock || 0), is_available: product.is_available !== false }) }}>Edit</button><button type="button" onClick={() => void remove(product.id)}>Delete</button></div>
+          <div className="admin-mini-actions"><button type="button" onClick={() => { setEditing(product); setForm({ name: product.name, description: product.description, specifications: product.specifications || '', category: product.category, selling_price: String(product.selling_price || product.price || 0), discount_price: product.discount_price == null ? '' : String(product.discount_price), unit: product.unit, image_url: product.image_url || '', stock_quantity: String(product.stock_quantity || 0), minimum_stock: String(product.minimum_stock || 0), is_available: product.is_available !== false, featured: product.featured === true, status: product.status || 'Active', sku: product.sku || '', serving_sizes: product.serving_sizes || [], custom_category: '' }) }}>Edit</button><button type="button" onClick={() => void remove(product.id)}>Delete</button></div>
         </article>
       ))}</div>
     </div>
@@ -936,6 +996,7 @@ function CategoriesSection() {
   }
 
   const remove = async (categoryId: number) => {
+    if (!window.confirm('Delete this category?')) return
     const token = localStorage.getItem('pazuri-admin-token')
     await fetch(apiUrl(`admin/categories/${categoryId}`), { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
     await load()
@@ -1125,14 +1186,16 @@ function HeroSlidesSection() {
 
 function AdminDashboardPage() {
   const navigate = useNavigate()
-  const [section, setSection] = useState('Overview')
+  const [section, setSection] = useState('Inventory')
   const [authenticated, setAuthenticated] = useState(false)
+  const [authLoading, setAuthLoading] = useState(true)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => {
     const token = localStorage.getItem('pazuri-admin-token')
     if (!token) {
       setAuthenticated(false)
+      setAuthLoading(false)
       return
     }
 
@@ -1146,6 +1209,8 @@ function AdminDashboardPage() {
       } catch {
         setAuthenticated(false)
         localStorage.removeItem('pazuri-admin-token')
+      } finally {
+        setAuthLoading(false)
       }
     }
 
@@ -1164,6 +1229,7 @@ function AdminDashboardPage() {
     navigate('/admin')
   }
 
+  if (authLoading) return <div className="admin-auth-loading" role="status">Verifying administrator access…</div>
   if (!authenticated) return <Navigate to="/admin" replace />
 
   return (
@@ -1171,7 +1237,7 @@ function AdminDashboardPage() {
       <aside className={`admin-sidebar${drawerOpen ? ' drawer-open' : ''}`}>
         <div className="brand-block admin-brand-block"><PazuriBrand iconSize={52} /></div>
         <nav className="sidebar-nav" aria-label="Admin sections">
-          {['Overview', 'Hero Slides', 'Products', 'Orders', 'POS', 'Inventory', 'Offers', 'Categories', 'WhatsApp', 'Reports', 'Settings', 'Logout'].map((item) => {
+          {['Inventory', 'Orders & Tracking', 'Settings', 'Profile', 'Logout'].map((item) => {
             if (item === 'Logout') {
               return <button key={item} type="button" className="sidebar-link logout-link" onClick={handleLogout}>{item}</button>
             }
@@ -1193,18 +1259,105 @@ function AdminDashboardPage() {
         <div className="admin-content-panel">
           {section === 'Overview' && <OverviewSection />}
           {section === 'Products' && <ProductsSection />}
+          {section === 'Inventory' && <ProductsSection />}
           {section === 'Orders' && <OrdersSection />}
+          {section === 'Orders & Tracking' && <OrdersSection />}
           {section === 'POS' && <PosSection />}
-          {section === 'Inventory' && <InventorySection />}
           {section === 'Offers' && <OffersSection />}
           {section === 'Categories' && <CategoriesSection />}
           {section === 'WhatsApp' && <WhatsAppSection />}
           {section === 'Reports' && <ReportsSection />}
           {section === 'Settings' && <SettingsSection />}
+          {section === 'Profile' && <AdminProfileSection />}
           {section === 'Hero Slides' && <HeroSlidesSection />}
         </div>
       </main>
     </div>
+  )
+}
+
+function OrderTrackingPage() {
+  const { trackingNumber: routeTrackingNumber } = useParams()
+  const [trackingNumber, setTrackingNumber] = useState(routeTrackingNumber ? decodeURIComponent(routeTrackingNumber) : '')
+  const [order, setOrder] = useState<any | null>(null)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const trackOrder = async (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault()
+    const normalized = trackingNumber.trim()
+    if (!normalized) return
+    setLoading(true)
+    setError('')
+    setOrder(null)
+    try {
+      const response = await fetch(apiUrl(`orders/tracking/${encodeURIComponent(normalized)}`))
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(payload.error || 'Unable to find that tracking number.')
+      setOrder(payload.order)
+    } catch (trackingError) {
+      setError(trackingError instanceof Error ? trackingError.message : 'Unable to track this order.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (routeTrackingNumber) void trackOrder()
+  }, [routeTrackingNumber])
+
+  const stages = [
+    ['PENDING_CONFIRMATION', 'Order Received'],
+    ['PROCESSING', 'Order Confirmed'],
+    ['PREPARING', 'Preparing Your Order'],
+    ['READY', 'Ready for Dispatch'],
+    ['DISPATCHED', 'Out for Delivery'],
+    ['COMPLETED', 'Delivered'],
+  ]
+  const activeIndex = order ? stages.findIndex(([status]) => status === order.status) : -1
+
+  return (
+    <main className="tracking-page">
+      <header className="tracking-brand"><PazuriBrand iconSize={62} /></header>
+      <section className="tracking-search-card">
+        <p className="section-kicker">Pazuri Fish delivery</p>
+        <h1>Track Your Order</h1>
+        <p>Enter your order tracking number below to see the latest status of your delivery.</p>
+        <form onSubmit={trackOrder}>
+          <input value={trackingNumber} onChange={(event) => setTrackingNumber(event.target.value)} placeholder="PAZ-2026-000123" aria-label="Tracking number" />
+          <button type="submit" className="primary-button" disabled={loading || !trackingNumber.trim()}>{loading ? 'Tracking…' : 'Track Order'}</button>
+        </form>
+        {error ? <p className="checkout-error" role="alert">{error}</p> : null}
+      </section>
+
+      {order ? (
+        <section className="tracking-result">
+          <div className="tracking-summary">
+            <div><span>Tracking number</span><strong>{order.tracking_number}</strong></div>
+            <div><span>Order date</span><strong>{order.order_date ? new Date(order.order_date).toLocaleString() : 'Not available'}</strong></div>
+            <div><span>Current status</span><strong>{stages[activeIndex]?.[1] || order.status}</strong></div>
+            <div><span>Total</span><strong>{formatKsh(Number(order.total || 0))}</strong></div>
+          </div>
+          <ol className="tracking-timeline">
+            {stages.map(([status, label], index) => {
+              const statusUpdate = order.status_history?.find((item: any) => item.status === status)
+              return (
+                <li key={status} className={index < activeIndex ? 'complete' : index === activeIndex ? 'active' : ''}>
+                  <span className="timeline-dot" />
+                  <div><strong>{label}</strong><small>{statusUpdate?.created_at ? new Date(statusUpdate.created_at).toLocaleString() : index <= activeIndex ? 'Updated' : 'Pending'}</small></div>
+                </li>
+              )
+            })}
+          </ol>
+          <div className="tracking-items">
+            <h2>Products ordered</h2>
+            {order.items.map((item: any) => (
+              <div key={item.product_id || item.product_name}><span>{item.product_name} × {item.quantity}</span><strong>{formatKsh(Number(item.total_price || 0))}</strong></div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </main>
   )
 }
 
@@ -1321,7 +1474,10 @@ function AppRoot() {
         <Route path="/products/:productId" element={<ProductDetailPage />} />
         <Route path="/admin" element={<AdminLoginPage />} />
         <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+        <Route path="/track" element={<OrderTrackingPage />} />
+        <Route path="/track/:trackingNumber" element={<OrderTrackingPage />} />
         <Route path="/shop/:categorySlug" element={<Suspense fallback={<div className="empty-state" role="status"><p>Loading category…</p></div>}><LazyCategoryShopPage /></Suspense>} />
+        <Route path="/shop/:categorySlug/:servingSlug" element={<Suspense fallback={<div className="empty-state" role="status"><p>Loading category…</p></div>}><LazyCategoryShopPage /></Suspense>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
@@ -1379,4 +1535,8 @@ function SettingsSection() {
       </form>
     </div>
   )
+}
+
+function AdminProfileSection() {
+  return <SettingsSection />
 }

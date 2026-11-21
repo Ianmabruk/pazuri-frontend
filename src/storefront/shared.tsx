@@ -1,6 +1,6 @@
 import type { ImgHTMLAttributes } from 'react'
 
-export type Category = 'All Products' | 'Fish Butchery' | 'Kitchen' | 'Combos' | 'Drinks'
+export type Category = 'All Products' | 'Fish Butchery' | 'Kitchen' | 'Combos' | 'Drinks' | 'Other'
 
 export type HomepageCategory = {
   id: number
@@ -13,6 +13,7 @@ export type HomepageCategory = {
 
 export type Product = {
   id: number
+  sku?: string
   name: string
   category: string
   description: string
@@ -26,6 +27,10 @@ export type Product = {
   is_available?: boolean
   specifications?: string
   demo_only?: boolean
+  featured?: boolean
+  status?: 'Active' | 'Draft' | 'Out of Stock'
+  discount_price?: number | null
+  serving_sizes?: string[]
 }
 
 export type CartItem = Product & {
@@ -109,6 +114,7 @@ export const DEFAULT_SHOP_CATEGORIES: HomepageCategory[] = [
   { id: -2, name: 'Combos', image_url: '/images/products/family-combo.jpg', display_order: 1, is_active: true, show_on_homepage: true },
   { id: -3, name: 'Kitchen', image_url: '/images/products/fish-and-chips.jpg', display_order: 2, is_active: true, show_on_homepage: true },
   { id: -4, name: 'Drinks', image_url: '/images/products/fresh-drink.jpg', display_order: 3, is_active: true, show_on_homepage: true },
+  { id: -5, name: 'Other', image_url: '/images/products/fresh-fish.jpg', display_order: 4, is_active: true, show_on_homepage: true },
 ]
 
 export const categorySlugFor = (name: string) =>

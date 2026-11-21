@@ -23,9 +23,9 @@ describe('Pazuri Fish storefront', () => {
       { id: 2, name: 'Fresh Nile Perch', description: 'Fresh Nile perch portions.', category: 'Fish Butchery', price: 1250, unit: 'per kg', stock_quantity: 12, image_url: '/images/categories/fish-butchery/nile-perch.jpg' },
       { id: 3, name: 'Tilapia Fillet', description: 'Ready-to-cook tilapia fillets.', category: 'Fish Butchery', price: 1100, unit: 'per kg', stock_quantity: 10, image_url: '/images/categories/fish-butchery/fish-cuts.jpg' },
       { id: 4, name: 'Family Fish Combo', description: 'A generous selection for sharing.', category: 'Combos', price: 2400, unit: 'per combo', stock_quantity: 10, image_url: '/images/categories/combos/family-feast.jpg' },
-      { id: 5, name: 'Grilled Tilapia Meal', description: 'Grilled tilapia served with sides.', category: 'Kitchen', price: 1450, unit: 'per serving', stock_quantity: 16, image_url: '/images/categories/kitchen/grilled-tilapia.jpg' },
-      { id: 6, name: 'Fish and Chips', description: 'Fresh fish with golden chips.', category: 'Kitchen', price: 1050, unit: 'per serving', stock_quantity: 14, image_url: '/images/categories/kitchen/fish-and-chips.jpg' },
-      { id: 7, name: 'Pan-Seared Nile Perch', description: 'Tender pan-seared Nile perch.', category: 'Kitchen', price: 1650, unit: 'per serving', stock_quantity: 10, image_url: '/images/categories/kitchen/pan-seared-perch.jpg' },
+      { id: 5, name: 'Grilled Tilapia Meal', description: 'Grilled tilapia served with sides.', category: 'Kitchen', price: 1450, unit: 'per serving', stock_quantity: 16, image_url: '/images/categories/kitchen/grilled-tilapia.jpg', serving_sizes: ['1 Person', '2–3 People', '4–5 People', '6–7 People'] },
+      { id: 6, name: 'Fish and Chips', description: 'Fresh fish with golden chips.', category: 'Kitchen', price: 1050, unit: 'per serving', stock_quantity: 14, image_url: '/images/categories/kitchen/fish-and-chips.jpg', serving_sizes: ['1 Person', '2–3 People', '4–5 People', '6–7 People'] },
+      { id: 7, name: 'Pan-Seared Nile Perch', description: 'Tender pan-seared Nile perch.', category: 'Kitchen', price: 1650, unit: 'per serving', stock_quantity: 10, image_url: '/images/categories/kitchen/pan-seared-perch.jpg', serving_sizes: ['1 Person', '2–3 People', '4–5 People', '6–7 People'] },
       { id: 8, name: 'Fresh Juice', description: 'Refreshing fruit juice.', category: 'Drinks', price: 250, unit: 'per bottle', stock_quantity: 30, image_url: '/images/categories/drinks/orange-juice.jpg' },
       { id: 9, name: 'Tropical Cooler', description: 'A chilled tropical fruit cooler.', category: 'Drinks', price: 280, unit: 'per bottle', stock_quantity: 18, image_url: '/images/categories/drinks/tropical-cooler.jpg' },
       { id: 10, name: 'Hibiscus Cooler', description: 'A refreshing hibiscus drink.', category: 'Drinks', price: 280, unit: 'per glass', stock_quantity: 18, image_url: '/images/categories/drinks/hibiscus-cooler.jpg' },
@@ -61,6 +61,7 @@ describe('Pazuri Fish storefront', () => {
       'Combos',
       'Kitchen',
       'Drinks',
+      'Other',
     ])
     expect(screen.getAllByText('All Products').length).toBeGreaterThan(0)
     expect(screen.getByRole('link', { name: 'TikTok' })).toHaveAttribute('href', 'https://www.tiktok.com')
@@ -183,6 +184,9 @@ describe('Pazuri Fish storefront', () => {
 
     await user.click(screen.getByRole('button', { name: 'Kitchen' }))
 
+    expect(await screen.findByRole('heading', { name: 'How many people are you serving?' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /2–3 People/ }))
+    await user.click(screen.getByRole('button', { name: 'Next' }))
     expect(await screen.findByRole('heading', { name: 'Kitchen' })).toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: 'Grilled Tilapia Meal' })).toBeInTheDocument()
     expect(document.querySelectorAll('.category-product-grid .freshco-product-card')).toHaveLength(3)
@@ -197,12 +201,12 @@ describe('Pazuri Fish storefront', () => {
   })
 
   it.each([
-    ['fish-butchery', 'Fish Butchery'],
-    ['combos', 'Combos'],
-    ['kitchen', 'Kitchen'],
-    ['drinks', 'Drinks'],
-  ])('loads the %s category route', async (slug, name) => {
-    window.history.pushState({}, '', `/shop/${slug}`)
+    ['fish-butchery', 'Fish Butchery', 'fish-butchery'],
+    ['combos', 'Combos', 'combos'],
+    ['kitchen', 'Kitchen', 'kitchen/2-3-people'],
+    ['drinks', 'Drinks', 'drinks'],
+  ])('loads the %s category route', async (slug, name, routeSlug) => {
+    window.history.pushState({}, '', `/shop/${routeSlug}`)
     render(<App />)
 
     expect(await screen.findByRole('heading', { name })).toBeInTheDocument()
@@ -214,8 +218,6 @@ describe('Pazuri Fish storefront', () => {
       expect(within(card).getByRole('img')).toHaveAttribute('alt', expect.any(String))
       expect(within(card).getByRole('heading', { level: 3 })).toBeInTheDocument()
       expect(within(card).getByText(/KSh/i)).toBeInTheDocument()
-      expect(card.querySelector('.shop-product-description')?.textContent).toBeTruthy()
-      expect(within(card).getByRole('button', { name: 'View Product' })).toBeInTheDocument()
       expect(within(card).getByRole('button', { name: /Add to Cart/i })).toBeInTheDocument()
     }
   })
@@ -225,8 +227,8 @@ describe('Pazuri Fish storefront', () => {
     window.history.pushState({}, '', '/shop/fish-butchery')
     render(<App />)
 
-    const viewButtons = await screen.findAllByRole('button', { name: 'View Product' })
-    await user.click(viewButtons[0])
+    const productImages = await screen.findAllByRole('button', { name: 'Fresh Whole Tilapia' })
+    await user.click(productImages[0])
     expect(await screen.findByRole('heading', { name: 'Fresh Whole Tilapia' })).toBeInTheDocument()
     expect(screen.getByText('Lake Victoria catch.')).toBeInTheDocument()
 
@@ -238,16 +240,15 @@ describe('Pazuri Fish storefront', () => {
     ])
   })
 
-  it('Buy Now adds the selected product quantity and proceeds through checkout', async () => {
+  it('Add to Cart proceeds to checkout with the selected quantity', async () => {
     const user = userEvent.setup()
     window.history.pushState({}, '', '/shop/fish-butchery')
     render(<App />)
 
-    const viewButtons = await screen.findAllByRole('button', { name: 'View Product' })
-    await user.click(viewButtons[0])
-    await screen.findByRole('heading', { name: 'Fresh Whole Tilapia' })
-    await user.click(screen.getByRole('button', { name: 'Increase quantity' }))
-    await user.click(screen.getByRole('button', { name: 'Buy Now' }))
+    const addButton = await screen.findAllByRole('button', { name: /add to cart/i })
+    await user.click(addButton[0])
+    await user.click(screen.getByRole('button', { name: 'Increase quantity for Fresh Whole Tilapia' }))
+    await user.click(screen.getByRole('button', { name: 'Checkout' }))
 
     expect(await screen.findByRole('heading', { name: 'Checkout' })).toBeInTheDocument()
     expect(screen.getByText(/Fresh Whole Tilapia.*× 2/)).toBeInTheDocument()
@@ -300,6 +301,7 @@ describe('Pazuri Fish storefront', () => {
       is_available: true,
       demo_only: true,
       image_url: '/images/products/fresh-fish.jpg',
+      serving_sizes: ['1 Person', '2–3 People', '4–5 People', '6–7 People'],
     }
     vi.mocked(fetch).mockImplementation(async (input, ...init) => {
       if (String(input).endsWith('/products')) {
@@ -308,7 +310,7 @@ describe('Pazuri Fish storefront', () => {
       if (originalFetch) return originalFetch(input, ...init)
       return { ok: true, json: async () => ({}) } as Response
     })
-    window.history.pushState({}, '', `/shop/${slug}`)
+    window.history.pushState({}, '', category === 'Kitchen' ? `/shop/${slug}/2-3-people` : `/shop/${slug}`)
 
     const user = userEvent.setup()
     render(<App />)
@@ -338,7 +340,7 @@ describe('Pazuri Fish storefront', () => {
     await user.click(screen.getByRole('button', { name: 'Place Order' }))
 
     expect(await screen.findByText('PF-TEST-1')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Order Successfully Placed!' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Your Order Has Been Received!' })).toBeInTheDocument()
     expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/orders'), expect.objectContaining({ method: 'POST' }))
   })
 
@@ -379,7 +381,7 @@ describe('Pazuri Fish storefront', () => {
     await user.click(screen.getByRole('button', { name: 'Place Order' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Product is unavailable.')
-    expect(screen.queryByRole('heading', { name: 'Order Successfully Placed!' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Your Order Has Been Received!' })).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Fresh Whole Tilapia', level: 4 })).toBeInTheDocument()
   })
 })

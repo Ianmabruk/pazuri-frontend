@@ -3,10 +3,8 @@ import './PazuriBrand.css'
 export function PazuriFishIcon({ size = 64, className = '' }) {
   return (
     <img
-      className={`pazuri-fish-icon ${className}`.trim()}
-      src="/images/pazurifish%20logo.jpg"
-      width={size}
-      height={size}
+      className={`pazuri-fish-icon site-logo ${className}`.trim()}
+      src="/images/Modern Blue and Orange Fish Logo.png"
       alt="Pazuri Fish"
       style={{ objectFit: 'contain' }}
     />
