@@ -9,8 +9,13 @@
 
 .pazuri-fish-icon {
   display: block;
+  width: auto;
+  height: 60px;
+  max-width: 120px;
   flex: 0 0 auto;
   object-fit: contain;
+  object-position: center;
+  overflow: visible;
 }
 
 .pazuri-brand-copy {
@@ -23,9 +28,9 @@
 
 .pazuri-brand-copy strong {
   color: #0F72B8;
-  font-family: 'Bauhaus 93', 'Righteous', sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-size: 1.38rem;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: -0.04em;
   white-space: nowrap;
 }
@@ -33,7 +38,7 @@
 .pazuri-brand-copy small {
   margin-top: 0.32rem;
   color: #F7A61C;
-  font-family: 'ITC Bauhaus', 'Quicksand', sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-size: 0.72rem;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -47,6 +52,12 @@
 }
 
 @media (max-width: 760px) {
+  .pazuri-fish-icon,
+  .site-logo {
+    height: 48px;
+    max-width: 100px;
+  }
+
   .pazuri-brand {
     gap: 0.5rem;
   }

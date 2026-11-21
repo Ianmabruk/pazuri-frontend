@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime, timedelta
 
 from flask import Flask, jsonify
@@ -8,7 +9,7 @@ from werkzeug.security import generate_password_hash
 
 from app.config import Config
 from app.extensions import db
-from app.models import AdminUser, Category, HeroContent, Offer, Order, OrderItem, Product, Sale, SaleItem, StockMovement, WhatsAppMessage
+from app.models import AdminUser, Category, HeroContent, Offer, Order, OrderItem, OrderStatusUpdate, Product, Sale, SaleItem, StockMovement, WhatsAppMessage
 from app.routes.admin import admin_bp
 from app.routes.auth import auth_bp
 from app.routes.content import content_bp
@@ -31,6 +32,15 @@ def ensure_schema_compatibility():
         if 'is_available' not in product_columns:
             with db.engine.begin() as conn:
                 conn.execute(text('ALTER TABLE products ADD COLUMN is_available BOOLEAN DEFAULT 1'))
+        for column_name, ddl in {
+            'featured': 'ALTER TABLE products ADD COLUMN featured BOOLEAN DEFAULT 0',
+            'status': "ALTER TABLE products ADD COLUMN status VARCHAR(20) DEFAULT 'Active'",
+            'discount_price': 'ALTER TABLE products ADD COLUMN discount_price FLOAT',
+            'serving_sizes': 'ALTER TABLE products ADD COLUMN serving_sizes TEXT DEFAULT ""',
+        }.items():
+            if column_name not in product_columns:
+                with db.engine.begin() as conn:
+                    conn.execute(text(ddl))
 
     if 'offers' in tables:
         offer_columns = {column['name'] for column in inspector.get_columns('offers')}
@@ -70,6 +80,18 @@ def ensure_schema_compatibility():
             with db.engine.begin() as conn:
                 conn.execute(text('ALTER TABLE sales ADD COLUMN source VARCHAR(40) DEFAULT "POS"'))
 
+    if 'orders' in tables:
+        order_columns = {column['name'] for column in inspector.get_columns('orders')}
+        if 'tracking_number' not in order_columns:
+            with db.engine.begin() as conn:
+                conn.execute(text('ALTER TABLE orders ADD COLUMN tracking_number VARCHAR(80)'))
+        if 'idempotency_key' not in order_columns:
+            with db.engine.begin() as conn:
+                conn.execute(text('ALTER TABLE orders ADD COLUMN idempotency_key VARCHAR(100)'))
+        for order in Order.query.filter(Order.tracking_number.is_(None)).all():
+            order.tracking_number = f"PAZ-{order.created_at.strftime('%Y%m%d') if order.created_at else datetime.utcnow().strftime('%Y%m%d')}-{order.id:06d}"
+        db.session.commit()
+
 
 def create_app():
     app = Flask(__name__)
@@ -92,6 +114,11 @@ def create_app():
     with app.app_context():
         db.create_all()
         ensure_schema_compatibility()
+
+        for kitchen_product in Product.query.filter(db.func.lower(Product.category) == 'kitchen').all():
+            if not kitchen_product.serving_sizes:
+                kitchen_product.serving_sizes = json.dumps(['1 Person', '2–3 People', '4–5 People', '6–7 People'])
+        db.session.commit()
 
         if Product.query.count() == 0:
             default_products = [
@@ -164,6 +191,7 @@ def create_app():
                     stock_quantity=16,
                     minimum_stock=3,
                     is_available=True,
+                    serving_sizes=json.dumps(['1 Person', '2–3 People', '4–5 People', '6–7 People']),
                 ),
                 Product(
                     sku='PF-006',
@@ -178,6 +206,7 @@ def create_app():
                     stock_quantity=14,
                     minimum_stock=3,
                     is_available=True,
+                    serving_sizes=json.dumps(['1 Person', '2–3 People', '4–5 People', '6–7 People']),
                 ),
                 Product(
                     sku='PF-007',
@@ -246,6 +275,8 @@ def create_app():
             product.sku = category_sku
             product.description = seeded_products_by_sku[category_sku][2]
             product.specifications = 'Prepared and packed for customer orders.'
+            if product.category == 'Kitchen' and not product.serving_sizes:
+                product.serving_sizes = json.dumps(['1 Person', '2–3 People', '4–5 People', '6–7 People'])
             existing_skus.add(category_sku)
 
         db.session.flush()
@@ -270,17 +301,11 @@ def create_app():
                     stock_quantity=20,
                     minimum_stock=2,
                     is_available=True,
+                    serving_sizes=json.dumps(['1 Person', '2–3 People', '4–5 People', '6–7 People']) if product_category == 'Kitchen' else '',
                 ))
                 existing_skus.add(sku)
                 category_stock += 1
 
-        if AdminUser.query.filter_by(email='admin@pazurifish.local').first() is None:
-            db.session.add(AdminUser(
-                email='admin@pazurifish.local',
-                full_name='Pazuri Fish Administrator',
-                role='administrator',
-                password_hash=generate_password_hash('ChangeMe123!'),
-            ))
 
         demo_hero_slides = [
             ('Demo hero: Fresh seafood', '/images/hero-seafood.png'),
@@ -379,8 +404,18 @@ def create_app():
                 Category(name='Kitchen', image_url='https://images.unsplash.com/photo-1559847844-5315695dadae?auto=format&fit=crop&w=900&q=80', display_order=1, is_active=True, show_on_homepage=True),
                 Category(name='Combos', image_url='https://images.unsplash.com/photo-1515516969-d4008cc6241a?auto=format&fit=crop&w=900&q=80', display_order=2, is_active=True, show_on_homepage=True),
                 Category(name='Drinks', image_url='https://images.unsplash.com/photo-1546173159-315724a31696?auto=format&fit=crop&w=900&q=80', display_order=3, is_active=True, show_on_homepage=True),
+                Category(name='Other', image_url='/images/products/fresh-fish.jpg', display_order=4, is_active=True, show_on_homepage=True),
             ]
             db.session.add_all(default_categories)
+
+        if Category.query.filter(db.func.lower(Category.name) == 'other').first() is None:
+            db.session.add(Category(
+                name='Other',
+                image_url='/images/products/fresh-fish.jpg',
+                display_order=4,
+                is_active=True,
+                show_on_homepage=True,
+            ))
 
         db.session.commit()
 

@@ -1,3 +1,5 @@
+import os
+
 from app import create_app
 
 
@@ -100,9 +102,16 @@ def test_admin_login_requires_valid_credentials():
     client = app.test_client()
 
     bad_response = client.post('/api/auth/login', json={'email': 'wrong@example.com', 'password': 'badpass'})
-    assert bad_response.status_code == 401
+    assert bad_response.status_code == 403
 
-    good_response = client.post('/api/auth/login', json={'email': 'admin@pazurifish.local', 'password': 'ChangeMe123!'})
+    os.environ['ADMIN_PROVISION_TOKEN'] = 'test-provision-secret'
+    provision = client.post('/api/auth/provision-admin', headers={'X-Admin-Provision-Token': 'test-provision-secret'}, json={
+        'email': 'ian@gmail.com',
+        'password': 'ChangeMe123!',
+        'full_name': 'Ian',
+    })
+    assert provision.status_code == 201
+    good_response = client.post('/api/auth/login', json={'email': 'ian@gmail.com', 'password': 'ChangeMe123!'})
     assert good_response.status_code == 200
     payload = good_response.get_json()
     assert 'token' in payload
@@ -154,3 +163,60 @@ def test_admin_sales_report_requires_authentication():
 
     response = client.get('/api/admin/reports/sales')
     assert response.status_code == 401
+
+
+def test_admin_can_assign_kitchen_serving_sizes():
+    app = create_app()
+    client = app.test_client()
+
+    os.environ['ADMIN_PROVISION_TOKEN'] = 'test-provision-secret'
+    client.post('/api/auth/provision-admin', headers={'X-Admin-Provision-Token': 'test-provision-secret'}, json={
+        'email': 'ian@gmail.com',
+        'password': 'ChangeMe123!',
+    })
+    login = client.post('/api/auth/login', json={
+        'email': 'ian@gmail.com',
+        'password': 'ChangeMe123!',
+    })
+    token = login.get_json()['token']
+    headers = {'Authorization': f'Bearer {token}'}
+
+    response = client.post('/api/products', headers=headers, json={
+        'sku': 'TEST-KITCHEN-1',
+        'name': 'Test Family Meal',
+        'description': 'A test kitchen menu item.',
+        'category': 'Kitchen',
+        'selling_price': 900,
+        'unit': 'per platter',
+        'stock_quantity': 5,
+        'is_available': True,
+        'featured': True,
+        'status': 'Active',
+        'serving_sizes': ['2–3 People', '4–5 People'],
+    })
+    assert response.status_code == 201
+    product = response.get_json()['product']
+    assert product['serving_sizes'] == ['2–3 People', '4–5 People']
+    assert product['featured'] is True
+
+
+def test_order_tracking_returns_sanitized_order_and_generated_tracking_number():
+    app = create_app()
+    client = app.test_client()
+    created = client.post('/api/orders', json={
+        'idempotency_key': 'frontend-tracking-test',
+        'items': [{'product_id': 1, 'quantity': 1, 'price': 650}],
+        'customer': {'name': 'Private Customer', 'phone': '+254700000001'},
+    })
+    assert created.status_code == 201
+    order = created.get_json()['order']
+    tracking_number = order['tracking_number']
+    assert tracking_number.startswith('PAZ-')
+
+    tracked = client.get(f'/api/orders/tracking/{tracking_number}')
+    assert tracked.status_code == 200
+    payload = tracked.get_json()['order']
+    assert payload['tracking_number'] == tracking_number
+    assert 'customer_name' not in payload
+    assert 'customer_phone' not in payload
+    assert payload['items']

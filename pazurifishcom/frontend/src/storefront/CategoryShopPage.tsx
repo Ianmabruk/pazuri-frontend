@@ -16,7 +16,7 @@ import {
 } from './shared'
 
 export default function CategoryShopPage() {
-  const { categorySlug } = useParams()
+  const { categorySlug, servingSlug } = useParams()
   const navigate = useNavigate()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<HomepageCategory[]>(DEFAULT_SHOP_CATEGORIES)
@@ -36,6 +36,7 @@ export default function CategoryShopPage() {
   })
   const [basketOpen, setBasketOpen] = useState(false)
   const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null)
+  const [pendingServingSlug, setPendingServingSlug] = useState('')
 
   useEffect(() => {
     let active = true
@@ -94,7 +95,6 @@ export default function CategoryShopPage() {
     window.setTimeout(() => setRecentlyAddedId((current) => current === product.id ? null : current), 1400)
   }
 
-  const categoryProducts = products.filter((product) => product.category.toLowerCase() === categoryName.toLowerCase())
   const cartTotal = cart.reduce((total, item) => total + Number(item.price ?? item.selling_price ?? 0) * item.quantity, 0)
   const cartItemCount = cart.reduce((total, item) => total + item.quantity, 0)
 
@@ -109,6 +109,21 @@ export default function CategoryShopPage() {
   }
 
   const removeFromCart = (productId: number) => setCart((current) => current.filter((item) => item.id !== productId))
+
+  const servingSizes = [
+    { name: '1 Person', slug: '1-person', description: 'A simple individual meal.', image: '/images/categories/kitchen/grilled-tilapia.jpg' },
+    { name: '2–3 People', slug: '2-3-people', description: 'Perfect for couples or small families.', image: '/images/categories/kitchen/fish-and-chips.jpg' },
+    { name: '4–5 People', slug: '4-5-people', description: 'A generous meal for the whole table.', image: '/images/products/family-combo.jpg' },
+    { name: '6–7 People', slug: '6-7-people', description: 'Shareable platters for larger groups.', image: '/images/products/kitchen-meal.jpg' },
+  ]
+  const selectedServing = servingSizes.find((size) => size.slug === servingSlug)
+  const isKitchen = categoryName.toLowerCase() === 'kitchen'
+  const categoryProducts = products.filter((product) => {
+    if (product.category.toLowerCase() !== categoryName.toLowerCase()) return false
+    if (!isKitchen || !selectedServing) return true
+    if (product.serving_sizes === undefined) return true
+    return product.serving_sizes.includes(selectedServing.name)
+  })
 
   return (
     <div className="category-shop-page">
@@ -130,31 +145,61 @@ export default function CategoryShopPage() {
             </button>
           ))}
         </nav>
-        <div className="category-shop-heading"><h1>{categoryName}</h1></div>
+        <div className="category-shop-heading">
+          <h1>{categoryName}</h1>
+          {isKitchen && selectedServing ? (
+            <button type="button" className="serving-change-button" onClick={() => navigate(`/shop/${categorySlugFor(categoryName)}`)}>Change serving size</button>
+          ) : null}
+        </div>
 
         {loading ? <div className="empty-state" role="status"><p>Loading products…</p></div> : error ? (
           <div className="empty-state" role="alert"><p>{error}</p></div>
+        ) : isKitchen && !selectedServing ? (
+          <section className="serving-selection" aria-labelledby="serving-selection-heading">
+            <p className="section-kicker">Kitchen menu</p>
+            <h2 id="serving-selection-heading">How many people are you serving?</h2>
+            <div className="serving-size-grid">
+              {servingSizes.map((size) => (
+                <button
+                  key={size.slug}
+                  type="button"
+                  className={`serving-size-card${pendingServingSlug === size.slug ? ' selected' : ''}`}
+                  aria-pressed={pendingServingSlug === size.slug}
+                  onClick={() => setPendingServingSlug(size.slug)}
+                >
+                  <span className="serving-size-copy">
+                    <strong>{size.name}</strong>
+                    <small>{size.description}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="primary-button serving-next-button"
+              disabled={!pendingServingSlug}
+              onClick={() => pendingServingSlug && navigate(`/shop/kitchen/${pendingServingSlug}`)}
+            >
+              Next
+            </button>
+          </section>
         ) : categoryProducts.length === 0 ? (
           <div className="empty-state">
-            <p>No products are available in {categoryName} right now.</p>
+            <p>{isKitchen && selectedServing ? `No kitchen menu items are available for ${selectedServing.name} right now.` : `No products are available in ${categoryName} right now.`}</p>
+            {isKitchen && selectedServing ? <button type="button" className="brand-action-button" onClick={() => navigate(`/shop/${categorySlugFor(categoryName)}`)}>Change Serving Size</button> : null}
             <button type="button" className="brand-action-button" onClick={() => navigate('/')}>Browse All Products</button>
           </div>
         ) : (
           <div className="featured-grid category-product-grid">
             {categoryProducts.map((product) => (
               <article key={product.id} className="freshco-product-card">
-                <div className="availability-row"><span>{Number(product.stock_quantity ?? 0) > 0 ? 'In Stock' : 'Out of Stock'}</span></div>
                 <button type="button" className="product-image-button" onClick={() => navigate(`/products/${product.id}`)}>
                   <StorefrontImage source={product.image_url || product.image} alt={product.name} fallback={FALLBACK_PRODUCT_IMAGE} sizes="(max-width: 760px) 84vw, (max-width: 980px) 45vw, 25vw" />
                 </button>
                 <div className="freshco-product-info">
                   <h3>{product.name}</h3>
-                  <p>{product.unit}</p>
-                  {product.demo_only ? <p className="demo-product-note">Demonstration sample</p> : null}
-                  <p className="shop-product-description">{product.description}</p>
                   <div className="price-row"><strong>{formatKsh(Number(product.price ?? product.selling_price ?? 0))}</strong></div>
                   <div className="product-card-actions">
-                    <button type="button" className="view-product-button" onClick={() => navigate(`/products/${product.id}`)}>View Product</button>
                     <button type="button" className="add-cart-button" onClick={() => addToCart(product)} disabled={product.is_available === false || Number(product.stock_quantity ?? 0) <= 0}>
                       {recentlyAddedId === product.id ? 'Added to Basket' : 'Add to Cart'} <ShoppingBasket size={15} />
                     </button>
