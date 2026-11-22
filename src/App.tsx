@@ -349,8 +349,6 @@ function StorefrontPage() {
 
   return (
     <div className="site-shell" id="top">
-      <div className="announcement-bar">Fresh Delivery Everyday <span>|</span> Special Offers on Selected Fish Products</div>
-
       <header className="topbar storefront-topbar">
         <a className="brand-block" href="#top" aria-label="Pazuri Fish home">
           <PazuriBrand />

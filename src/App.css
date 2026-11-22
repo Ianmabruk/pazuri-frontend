@@ -1658,7 +1658,6 @@ main {
 }
 
 /* Freshco-matched Pazuri Fish storefront */
-.announcement-bar{height:34px;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--navy);color:#fff;font-size:.78rem;font-weight:700;letter-spacing:.02em}.announcement-bar span{color:var(--yellow)}
 .storefront-topbar{position:relative;top:auto;left:auto;transform:none;width:min(1280px,calc(100% - 48px));min-height:82px;margin:0 auto;padding:10px 0;border:0;border-bottom:1px solid var(--border);border-radius:0;background:#fff;color:var(--navy);box-shadow:none;backdrop-filter:none}.storefront-topbar .brand-block{color:var(--navy)}
 .horizontal-brand{display:inline-flex;align-items:center;gap:10px}.horizontal-brand-symbol{width:auto;height:60px;max-width:120px;object-fit:contain;object-position:center;flex-shrink:0;overflow:visible}.horizontal-brand-copy{display:grid;line-height:1.05}.horizontal-brand-copy strong{font-size:1.25rem;color:var(--navy)}.horizontal-brand-copy small{margin-top:5px;color:var(--secondary);font-size:.68rem;font-weight:700}
 .storefront-topbar .main-nav{display:flex;gap:34px;margin-left:auto;margin-right:auto}.storefront-topbar .main-nav a{color:var(--text);font-size:.86rem}.storefront-topbar .main-nav a:hover{color:var(--blue)}

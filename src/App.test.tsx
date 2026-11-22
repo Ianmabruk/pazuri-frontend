@@ -49,6 +49,10 @@ describe('Pazuri Fish storefront', () => {
   it('renders homepage sections in the requested order without testimonials', () => {
     render(<App />)
 
+    expect(document.querySelector('.announcement-bar')).not.toBeInTheDocument()
+    expect(document.querySelector('.site-shell')?.firstElementChild).toHaveClass('topbar', 'storefront-topbar')
+    expect(screen.getByRole('navigation', { name: 'Primary navigation' })).toBeInTheDocument()
+    expect(document.querySelector('.mobile-nav a')).toBeInTheDocument()
     expect(document.querySelector('.hero-line-one')?.textContent?.replace(/\\s+/g, '')).toBe("SourcedfromLakeVictoria'swaters")
     expect(document.querySelector('.hero-line-two')?.textContent?.replace(/\\s+/g, '')).toBe('Freshcatchdeliveredeveryday')
     expect(document.querySelectorAll('.hero-slide')).toHaveLength(6)
@@ -67,14 +71,12 @@ describe('Pazuri Fish storefront', () => {
     expect(screen.getByRole('link', { name: 'TikTok' })).toHaveAttribute('href', 'https://www.tiktok.com')
     expect(screen.getByRole('link', { name: 'Facebook' })).toHaveAttribute('href', 'https://www.facebook.com')
     expect(screen.getByRole('link', { name: 'Instagram' })).toHaveAttribute('href', 'https://www.instagram.com')
-    expect(screen.getByText('FRESH DELIVERY EVERYDAY')).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: /customer testimonials/i })).not.toBeInTheDocument()
     const mainSections = Array.from(document.querySelectorAll('main > section'))
     expect(mainSections.map((section) => section.textContent)).toEqual(expect.arrayContaining([
       expect.stringContaining('Offers'),
       expect.stringContaining('Featured Products'),
       expect.stringContaining('Deals of the Week'),
-      expect.stringContaining('FRESH DELIVERY EVERYDAY'),
     ]))
     expect(mainSections.map((section) => section.className)).toEqual([
       'hero-section freshco-hero',
