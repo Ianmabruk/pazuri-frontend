@@ -9,7 +9,7 @@ from werkzeug.security import generate_password_hash
 
 from app.config import Config
 from app.extensions import db
-from app.models import AdminSetting, AdminUser, Category, Deal, HeroContent, Offer, Order, OrderItem, OrderStatusUpdate, Product, Sale, SaleItem, StockMovement, WhatsAppMessage
+from app.models import AdminUser, Category, HeroContent, Offer, Order, OrderItem, OrderStatusUpdate, Product, Sale, SaleItem, StockMovement, WhatsAppMessage
 from app.routes.admin import admin_bp
 from app.routes.auth import auth_bp
 from app.routes.content import content_bp
@@ -18,8 +18,6 @@ from app.routes.orders import orders_bp
 from app.routes.products import products_bp
 from app.routes.whatsapp import whatsapp_bp
 from app.routes.categories import categories_bp
-from app.routes.deals import deals_bp
-from app.routes.settings import settings_bp
 
 
 def ensure_schema_compatibility():
@@ -28,9 +26,6 @@ def ensure_schema_compatibility():
 
     if 'products' in tables:
         product_columns = {column['name'] for column in inspector.get_columns('products')}
-        if 'category_id' not in product_columns:
-            with db.engine.begin() as conn:
-                conn.execute(text('ALTER TABLE products ADD COLUMN category_id INTEGER'))
         if 'specifications' not in product_columns:
             with db.engine.begin() as conn:
                 conn.execute(text('ALTER TABLE products ADD COLUMN specifications TEXT DEFAULT ""'))
@@ -95,35 +90,6 @@ def ensure_schema_compatibility():
                 conn.execute(text('ALTER TABLE orders ADD COLUMN idempotency_key VARCHAR(100)'))
         for order in Order.query.filter(Order.tracking_number.is_(None)).all():
             order.tracking_number = f"PAZ-{order.created_at.strftime('%Y%m%d') if order.created_at else datetime.utcnow().strftime('%Y%m%d')}-{order.id:06d}"
-        db.session.commit()
-
-    if 'categories' in tables:
-        category_columns = {column['name'] for column in inspector.get_columns('categories')}
-        for column_name, ddl in {
-            'slug': 'ALTER TABLE categories ADD COLUMN slug VARCHAR(100)',
-            'description': 'ALTER TABLE categories ADD COLUMN description TEXT DEFAULT ""',
-            'created_at': 'ALTER TABLE categories ADD COLUMN created_at DATETIME',
-            'updated_at': 'ALTER TABLE categories ADD COLUMN updated_at DATETIME',
-        }.items():
-            if column_name not in category_columns:
-                with db.engine.begin() as conn:
-                    conn.execute(text(ddl))
-        for category in Category.query.all():
-            if category.name and category.name.strip().lower() == 'other':
-                category.name = 'Others'
-            if not category.slug:
-                category.slug = '-'.join(''.join(ch.lower() if ch.isalnum() else ' ' for ch in category.name).split())
-            if not category.created_at:
-                category.created_at = datetime.utcnow()
-            if not category.updated_at:
-                category.updated_at = datetime.utcnow()
-        db.session.commit()
-
-        for product in Product.query.all():
-            if product.category_id is None:
-                category = Category.query.filter(db.func.lower(Category.name) == db.func.lower(product.category)).first()
-                if category:
-                    product.category_id = category.id
         db.session.commit()
 
 
@@ -438,13 +404,13 @@ def create_app():
                 Category(name='Kitchen', image_url='https://images.unsplash.com/photo-1559847844-5315695dadae?auto=format&fit=crop&w=900&q=80', display_order=1, is_active=True, show_on_homepage=True),
                 Category(name='Combos', image_url='https://images.unsplash.com/photo-1515516969-d4008cc6241a?auto=format&fit=crop&w=900&q=80', display_order=2, is_active=True, show_on_homepage=True),
                 Category(name='Drinks', image_url='https://images.unsplash.com/photo-1546173159-315724a31696?auto=format&fit=crop&w=900&q=80', display_order=3, is_active=True, show_on_homepage=True),
-                Category(name='Others', image_url='/images/products/fresh-fish.jpg', display_order=4, is_active=True, show_on_homepage=True),
+                Category(name='Other', image_url='/images/products/fresh-fish.jpg', display_order=4, is_active=True, show_on_homepage=True),
             ]
             db.session.add_all(default_categories)
 
-        if Category.query.filter(db.func.lower(Category.name).in_(('other', 'others'))).first() is None:
+        if Category.query.filter(db.func.lower(Category.name) == 'other').first() is None:
             db.session.add(Category(
-                name='Others',
+                name='Other',
                 image_url='/images/products/fresh-fish.jpg',
                 display_order=4,
                 is_active=True,
@@ -461,8 +427,6 @@ def create_app():
     app.register_blueprint(admin_bp)
     app.register_blueprint(whatsapp_bp)
     app.register_blueprint(categories_bp)
-    app.register_blueprint(deals_bp)
-    app.register_blueprint(settings_bp)
 
     @app.route('/api/health')
     def health():

@@ -1,6 +1,6 @@
 import './PazuriBrand.css'
 
-export function PazuriFishIcon({ size = 64, className = '' }) {
+export function PazuriFishIcon({ className = '' }) {
   return (
     <img
       className={`pazuri-fish-icon site-logo ${className}`.trim()}

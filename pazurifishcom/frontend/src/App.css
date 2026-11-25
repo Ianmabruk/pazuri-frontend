@@ -1,17 +1,40 @@
 :root {
-  --brand-blue: #07559a;
-  --brand-orange: #f5a623;
-  --navy: #071d2c;
-  --blue: #07559a;
-  --yellow: #f5b51b;
-  --pale-blue: #eff7fa;
-  --light: #ffffff;
-  --cream: #fbf4e7;
-  --text: #102b3a;
-  --secondary: #6d7d85;
-  --border: #e9eef0;
-  --shadow: 0 18px 35px rgba(7, 29, 44, 0.08);
-  --radius: 22px;
+  /* Brand - Aligned with index.css design system */
+  --brand-blue: #0066CC;
+  --brand-orange: #FF9500;
+  --navy: #051926;
+  --blue: #0066CC;
+  --yellow: #FF9500;
+  --yellow-hover: #E08500;
+  --yellow-light: #FFF3E0;
+
+  /* Backgrounds */
+  --pale-blue: #E8F0FE;
+  --light: #FFFFFF;
+  --cream: #FFF8F0;
+  --surface: #FAFCFD;
+
+  /* Text */
+  --text: #051926;
+  --text-muted: #3A4F5A;
+  --secondary: #5A6F7A;
+
+  /* Borders & Shadows */
+  --border: #E0E8ED;
+  --border-strong: #C8D4DC;
+  --shadow-sm: 0 2px 8px rgba(5, 25, 38, 0.05);
+  --shadow: 0 8px 24px rgba(5, 25, 38, 0.07);
+  --shadow-lg: 0 16px 40px rgba(5, 25, 38, 0.09);
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 9999px;
+
+  /* Transitions */
+  --transition: 0.16s ease;
 }
 
 * {
@@ -24,8 +47,8 @@ html {
 
 body {
   margin: 0;
-  font-family: 'Poppins', 'DM Sans', sans-serif;
-  background: #f5f7f9;
+  font-family: 'Poppins', system-ui, sans-serif;
+  background: var(--surface);
   color: var(--text);
 }
 
@@ -62,15 +85,15 @@ img {
   justify-content: space-between;
   gap: 20px;
   width: min(1200px, calc(100% - 24px));
-  min-height: 72px;
-  margin: 18px auto 0;
+  min-height: 68px;
+  margin: 14px auto 0;
   padding: 0 18px 0 22px;
-  border-radius: 999px;
-  background: rgba(7, 29, 44, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-pill);
+  background: rgba(7, 29, 44, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: #fff;
-  box-shadow: 0 16px 28px rgba(7, 29, 44, 0.09);
-  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(7, 29, 44, 0.14);
+  backdrop-filter: blur(12px);
 }
 
 .transparent-topbar {
@@ -122,14 +145,15 @@ img {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 26px;
-  font-size: 0.9rem;
+  gap: 28px;
+  font-size: 0.875rem;
 }
 
 .main-nav a {
-  color: rgba(255, 255, 255, 0.88);
-  transition: color 0.2s ease;
+  color: rgba(255, 255, 255, 0.9);
+  transition: color var(--transition);
   font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .main-nav a:hover {
@@ -334,8 +358,14 @@ main {
   gap: 16px;
   padding: 22px 18px;
   border: 1px solid var(--border);
-  border-radius: 18px;
-  background: #f8fbfc;
+  border-radius: var(--radius);
+  background: #fff;
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+
+.benefit-item:hover {
+  box-shadow: var(--shadow);
+  transform: translateY(-2px);
 }
 
 .benefit-icon {
@@ -344,20 +374,24 @@ main {
   justify-content: center;
   width: 44px;
   height: 44px;
-  border-radius: 12px;
-  background: rgba(7, 85, 154, 0.09);
+  border-radius: var(--radius-sm);
+  background: rgba(8, 104, 184, 0.1);
   color: var(--blue);
+  flex-shrink: 0;
 }
 
 .benefit-item h3 {
-  margin: 0 0 8px;
-  font-size: 1.05rem;
+  margin: 0 0 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
 }
 
 .benefit-item p {
   margin: 0;
   line-height: 1.6;
   color: var(--secondary);
+  font-size: 0.875rem;
 }
 
 .catalogue-section,
@@ -383,14 +417,17 @@ main {
 .bulk-copy h2,
 .promo-copy h2,
 .about-copy h2 {
-  font-size: clamp(2rem, 3vw, 3.4rem);
+  font-size: clamp(1.75rem, 2.8vw, 2.8rem);
   color: var(--text);
+  letter-spacing: -0.025em;
+  line-height: 1.1;
 }
 
 .section-copy {
   margin: 0 0 24px;
   color: var(--secondary);
   line-height: 1.7;
+  font-size: 0.9375rem;
 }
 
 .catalogue-link {
@@ -436,17 +473,19 @@ main {
   border: 1px solid var(--border);
   background: #fff;
   color: var(--secondary);
-  border-radius: 999px;
-  padding: 0.8rem 1.1rem;
+  border-radius: var(--radius-pill);
+  padding: 0.6rem 1.1rem;
   font-weight: 600;
+  font-size: 0.875rem;
   white-space: nowrap;
+  transition: background-color var(--transition), border-color var(--transition), color var(--transition);
 }
 
 .category-pill {
   flex: 0 0 auto;
-  background: rgba(7, 85, 154, 0.06);
+  background: rgba(8, 104, 184, 0.06);
   color: var(--navy);
-  border-color: rgba(7, 85, 154, 0.12);
+  border-color: rgba(8, 104, 184, 0.14);
 }
 
 .category-tab.active,
@@ -488,9 +527,15 @@ main {
   align-items: stretch;
   padding: 14px;
   border: 1px solid var(--border);
-  border-radius: 22px;
+  border-radius: var(--radius-lg);
   background: #fff;
-  box-shadow: 0 15px 28px rgba(9, 26, 38, 0.04);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+
+.product-card:hover {
+  box-shadow: var(--shadow);
+  transform: translateY(-2px);
 }
 
 .product-card img {
@@ -498,7 +543,7 @@ main {
   min-width: 200px;
   height: 210px;
   object-fit: cover;
-  border-radius: 18px;
+  border-radius: var(--radius);
 }
 
 .product-content {
@@ -512,9 +557,9 @@ main {
   display: inline-block;
   margin-bottom: 8px;
   color: var(--blue);
-  font-size: 0.73rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 

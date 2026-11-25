@@ -3,7 +3,7 @@ import json
 from flask import Blueprint, jsonify, request
 
 from app.extensions import db
-from app.models import Category, Product
+from app.models import Product
 from app.routes.auth import get_authenticated_admin
 
 products_bp = Blueprint('products', __name__, url_prefix='/api')
@@ -11,18 +11,7 @@ products_bp = Blueprint('products', __name__, url_prefix='/api')
 
 @products_bp.get('/products')
 def get_products():
-    category_slug = request.args.get('category')
-    query = Product.query.filter(
-        Product.is_available.is_(True),
-        db.or_(Product.status.is_(None), db.func.lower(Product.status) != 'draft'),
-    )
-    if category_slug:
-        category = Category.query.filter(db.func.lower(Category.slug) == category_slug.lower()).first()
-        if category:
-            query = query.filter(db.or_(Product.category_id == category.id, db.func.lower(Product.category) == db.func.lower(category.name)))
-        else:
-            query = query.filter(db.false())
-    products = [product.to_dict() for product in query.order_by(Product.name.asc()).all()]
+    products = [product.to_dict() for product in Product.query.filter_by(is_available=True).order_by(Product.name.asc()).all()]
     return jsonify({'products': products})
 
 
@@ -45,23 +34,12 @@ def create_product():
     if missing:
         return jsonify({'error': f'Missing required fields: {missing}'}), 400
 
-    category_name = str(payload['category']).strip()
-    category = Category.query.filter(db.func.lower(Category.name) == category_name.lower()).first()
-    sku = str(payload.get('sku') or '').strip()
-    if not sku:
-        sku = f"PF-{Product.query.count() + 1:04d}"
-    suffix = 2
-    while Product.query.filter_by(sku=sku).first() is not None:
-        sku = f"{sku}-{suffix}"
-        suffix += 1
-
     product = Product(
-        sku=sku,
+        sku=payload.get('sku') or f"PF-{Product.query.count() + 1:04d}",
         name=payload['name'],
         description=payload['description'],
         specifications=payload.get('specifications', ''),
-        category=category_name,
-        category_id=category.id if category else None,
+        category=payload['category'],
         selling_price=float(payload['selling_price']),
         cost_price=float(payload.get('cost_price', 0) or 0),
         unit=payload['unit'],
@@ -96,10 +74,6 @@ def manage_product(product_id):
     product.description = payload.get('description', product.description)
     product.specifications = payload.get('specifications', product.specifications)
     product.category = payload.get('category', product.category)
-    category_name = str(payload.get('category', product.category)).strip()
-    category = Category.query.filter(db.func.lower(Category.name) == category_name.lower()).first()
-    product.category = category_name
-    product.category_id = category.id if category else None
     product.selling_price = float(payload.get('selling_price', product.selling_price) or product.selling_price)
     product.cost_price = float(payload.get('cost_price', product.cost_price) or product.cost_price)
     product.unit = payload.get('unit', product.unit)
