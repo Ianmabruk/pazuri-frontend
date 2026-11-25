@@ -19,7 +19,6 @@ import { FaFacebookF, FaInstagram, FaTiktok } from 'react-icons/fa6'
 import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import './App.css'
 import PazuriBrand from './components/PazuriBrand/PazuriBrand.jsx'
-import { DEMO_OFFERS } from './storefront/demoCatalog'
 import {
   apiUrl,
   categorySlugFor,
@@ -78,6 +77,7 @@ function StorefrontPage() {
   const [basketOpen, setBasketOpen] = useState(false)
   const [heroIndex, setHeroIndex] = useState(0)
   const [offers, setOffers] = useState<Offer[]>([])
+  const [deals, setDeals] = useState<any[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [heroSlides, setHeroSlides] = useState<HeroContent[]>(HERO_IMAGES)
   const [heroSwipeStart, setHeroSwipeStart] = useState<number | null>(null)
@@ -144,8 +144,9 @@ function StorefrontPage() {
         fetchApiJson<{ hero?: HeroContent; slides?: HeroContent[] }>('content/hero'),
         fetchApiJson<{ offers?: Offer[] }>('offers'),
         fetchApiJson<{ categories?: HomepageCategory[] }>('categories/homepage'),
+        fetchApiJson<{ deals?: any[] }>('deals'),
       ])
-      const [productsResult, heroResult, offersResult, categoriesResult] = results
+      const [productsResult, heroResult, offersResult, categoriesResult, dealsResult] = results
       if (productsResult.status === 'fulfilled') {
         setProducts(Array.isArray(productsResult.value.products) ? productsResult.value.products : [])
       } else {
@@ -183,6 +184,13 @@ function StorefrontPage() {
         console.error('Unable to load homepage categories.', categoriesResult.reason)
         setHomepageCategories(DEFAULT_SHOP_CATEGORIES)
       }
+
+      if (dealsResult.status === 'fulfilled') {
+        setDeals(Array.isArray(dealsResult.value.deals) ? dealsResult.value.deals : [])
+      } else {
+        console.error('Unable to load active deals.', dealsResult.reason)
+        setDeals([])
+      }
     }
 
     void loadContent()
@@ -197,12 +205,7 @@ function StorefrontPage() {
     return [{ ...offer, product, demo_only: false }]
   }), [offers, products])
 
-  const offerCards = useMemo(() => [
-    ...liveOfferCards.slice(0, 4),
-    ...DEMO_OFFERS
-      .filter((demoOffer) => !liveOfferCards.some((offer) => offer.product.id === demoOffer.product.id))
-      .slice(0, Math.max(0, 4 - liveOfferCards.length)),
-  ], [liveOfferCards])
+  const offerCards = useMemo(() => liveOfferCards.slice(0, 4), [liveOfferCards])
 
   const featuredProducts = useMemo(() => {
     const featuredOrder = ['fresh whole tilapia', 'fresh nile perch', 'tilapia fillet', 'family fish combo']
@@ -534,24 +537,24 @@ function StorefrontPage() {
             <div><h2>Deals of the Week</h2></div>
           </div>
           <div className="weekly-deals-grid">
-            {offerCards.slice(0, 3).map((deal, index) => {
-              const product = deal.product
-              const promoPrice = Number(deal.promo_price ?? 0)
-              const originalPrice = Number(deal.original_price ?? product.price ?? product.selling_price ?? 0)
+            {deals.slice(0, 3).map((deal, index) => {
+              const product = products.find((item) => deal.product_ids?.includes(item.id)) || products.find((item) => item.category === 'Combos') || products[0]
+              const promoPrice = Number(deal.deal_price ?? 0)
+              const originalPrice = Number(deal.original_price ?? product?.price ?? product?.selling_price ?? 0)
               const discount = originalPrice > promoPrice && promoPrice > 0
                 ? Math.round((1 - promoPrice / originalPrice) * 100)
-                : Number(deal.discount_value ?? 0)
+                : 0
               return (
                 <article className="weekly-deal-card" key={`${deal.id}-${index}`}>
-                  <StorefrontImage source={deal.image_url || product.image_url || product.image} alt={deal.title || product.name} fallback="/images/products/family-combo.jpg" sizes="(max-width: 760px) 92vw, 33vw" />
+                  <StorefrontImage source={deal.image_url || product?.image_url || product?.image} alt={deal.title || product?.name || 'Pazuri deal'} fallback="/images/products/family-combo.jpg" sizes="(max-width: 760px) 92vw, 33vw" />
                   <div className="weekly-deal-copy">
                     {discount > 0 ? <span className="deal-badge">SAVE {discount}%</span> : null}
-                    <h3>{deal.title || product.name}</h3>
-                    <p>{deal.description || product.description}</p>
+                    <h3>{deal.title || product?.name || 'Pazuri deal'}</h3>
+                    <p>{deal.description || product?.description || ''}</p>
                     <div className="deal-feature-price"><strong>{formatKsh(promoPrice || originalPrice)}</strong>{promoPrice > 0 && originalPrice > promoPrice ? <span>{formatKsh(originalPrice)}</span> : null}</div>
                     <div className="deal-card-actions">
-                      <button type="button" className="view-product-button" onClick={() => product.id > 0 ? navigate(`/products/${product.id}`) : navigate('/shop/combos')}>View Deal</button>
-                      <button type="button" className="add-cart-button" onClick={() => addToCart({ ...product, price: promoPrice || originalPrice, selling_price: promoPrice || originalPrice })}>Add to Cart</button>
+                      <button type="button" className="view-product-button" onClick={() => product?.id > 0 ? navigate(`/products/${product.id}`) : navigate('/shop/combos')}>View Deal</button>
+                      {product ? <button type="button" className="add-cart-button" onClick={() => addToCart({ ...product, price: promoPrice || originalPrice, selling_price: promoPrice || originalPrice })}>Add to Cart</button> : null}
                     </div>
                   </div>
                 </article>
@@ -766,7 +769,7 @@ function AdminLoginPage() {
 }
 
 function OverviewSection() {
-  const [stats, setStats] = useState({ revenue: 0, orders: 0, completed: 0, pending: 0, totalProducts: 0, lowStock: 0, outOfStock: 0 })
+  const [stats, setStats] = useState({ revenue: 0, orders: 0, completed: 0, pending: 0, totalProducts: 0, totalCategories: 0, activeOffers: 0, activeDeals: 0, lowStock: 0, outOfStock: 0 })
 
   useEffect(() => {
     const token = localStorage.getItem('pazuri-admin-token')
@@ -774,14 +777,23 @@ function OverviewSection() {
 
     const load = async () => {
       try {
-        const [ordersRes, productsRes] = await Promise.all([
+        const [ordersRes, productsRes, categoriesRes, offersRes, dealsRes] = await Promise.all([
           fetch(apiUrl('orders'), { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(apiUrl('products'), { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(apiUrl('admin/products'), { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(apiUrl('admin/categories'), { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(apiUrl('admin/offers'), { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(apiUrl('admin/deals'), { headers: { Authorization: `Bearer ${token}` } }),
         ])
         const orderPayload = ordersRes.ok ? await ordersRes.json() : { orders: [] }
         const productPayload = productsRes.ok ? await productsRes.json() : { products: [] }
         const orders = Array.isArray(orderPayload.orders) ? orderPayload.orders : []
         const products = Array.isArray(productPayload.products) ? productPayload.products : []
+        const categoriesPayload = categoriesRes.ok ? await categoriesRes.json() : { categories: [] }
+        const offersPayload = offersRes.ok ? await offersRes.json() : { offers: [] }
+        const dealsPayload = dealsRes.ok ? await dealsRes.json() : { deals: [] }
+        const categories = Array.isArray(categoriesPayload.categories) ? categoriesPayload.categories : []
+        const offers = Array.isArray(offersPayload.offers) ? offersPayload.offers : []
+        const deals = Array.isArray(dealsPayload.deals) ? dealsPayload.deals : []
 
         setStats({
           revenue: orders.filter((order: { order_status: string }) => order.order_status !== 'CANCELLED').reduce((sum: number, order: { total: number }) => sum + Number(order.total || 0), 0),
@@ -789,11 +801,14 @@ function OverviewSection() {
           completed: orders.filter((order: { order_status: string }) => order.order_status === 'COMPLETED').length,
           pending: orders.filter((order: { order_status: string }) => ['PENDING_CONFIRMATION', 'PENDING'].includes(order.order_status)).length,
           totalProducts: products.length,
+          totalCategories: categories.length,
+          activeOffers: offers.filter((offer: { is_published: boolean }) => offer.is_published).length,
+          activeDeals: deals.filter((deal: { is_active: boolean }) => deal.is_active).length,
           lowStock: products.filter((product: { stock_quantity: number; minimum_stock: number }) => Number(product.stock_quantity) <= Number(product.minimum_stock || 0)).length,
           outOfStock: products.filter((product: { stock_quantity: number }) => Number(product.stock_quantity) <= 0).length,
         })
       } catch {
-        setStats({ revenue: 0, orders: 0, completed: 0, pending: 0, totalProducts: 0, lowStock: 0, outOfStock: 0 })
+        setStats({ revenue: 0, orders: 0, completed: 0, pending: 0, totalProducts: 0, totalCategories: 0, activeOffers: 0, activeDeals: 0, lowStock: 0, outOfStock: 0 })
       }
     }
 
@@ -807,6 +822,9 @@ function OverviewSection() {
       <div className="admin-card stat-card"><span>Completed orders</span><strong>{stats.completed}</strong></div>
       <div className="admin-card stat-card"><span>Pending orders</span><strong>{stats.pending}</strong></div>
       <div className="admin-card stat-card"><span>Total products</span><strong>{stats.totalProducts}</strong></div>
+      <div className="admin-card stat-card"><span>Total categories</span><strong>{stats.totalCategories}</strong></div>
+      <div className="admin-card stat-card"><span>Active offers</span><strong>{stats.activeOffers}</strong></div>
+      <div className="admin-card stat-card"><span>Active deals</span><strong>{stats.activeDeals}</strong></div>
       <div className="admin-card stat-card"><span>Low-stock products</span><strong>{stats.lowStock}</strong></div>
       <div className="admin-card stat-card"><span>Out-of-stock products</span><strong>{stats.outOfStock}</strong></div>
     </div>
@@ -816,6 +834,8 @@ function OverviewSection() {
 function ProductsSection() {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<HomepageCategory[]>([])
+  const [selectedCategory, setSelectedCategory] = useState('Fish Butchery')
+  const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<Product | null>(null)
   const [form, setForm] = useState({ name: '', description: '', specifications: '', category: 'Fish Butchery', selling_price: '', discount_price: '', unit: 'per kg', image_url: '', stock_quantity: '0', minimum_stock: '0', is_available: true, featured: false, status: 'Active', sku: '', serving_sizes: [] as string[], custom_category: '' })
 
@@ -879,6 +899,15 @@ function ProductsSection() {
 
   return (
     <div className="offers-admin-layout">
+      <div className="admin-card wide admin-category-toolbar">
+        <h3>Product categories</h3>
+        <div className="shop-category-nav" aria-label="Product categories">
+          {['Fish Butchery', 'Combos', 'Kitchen', 'Drinks', 'Others', ...categories.filter((category) => !['Fish Butchery', 'Combos', 'Kitchen', 'Drinks', 'Others', 'Other'].includes(category.name)).map((category) => category.name)].map((categoryName) => (
+            <button key={categoryName} type="button" className={selectedCategory === categoryName ? 'active' : ''} onClick={() => setSelectedCategory(categoryName)}>{categoryName}</button>
+          ))}
+        </div>
+        <label className="admin-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products" /></label>
+      </div>
       <form className="offer-admin-form admin-card" onSubmit={submit}>
         <h3>{editing ? 'Edit product' : 'Add product'}</h3>
         <div className="offer-form-grid">
@@ -922,7 +951,10 @@ function ProductsSection() {
         </div>
         <div className="offer-form-actions"><button type="submit" className="primary-button">{editing ? 'Save product' : 'Create product'}</button>{editing && <button type="button" onClick={reset}>Cancel</button>}</div>
       </form>
-      <div className="admin-card offer-admin-list"><h3>Products</h3>{products.map((product) => (
+      <div className="admin-card offer-admin-list"><h3>{selectedCategory} products</h3>{products.filter((product) => {
+        if (selectedCategory === 'Others') return !['Fish Butchery', 'Combos', 'Kitchen', 'Drinks'].includes(product.category)
+        return product.category === selectedCategory
+      }).filter((product) => `${product.name} ${product.description}`.toLowerCase().includes(search.toLowerCase())).map((product) => (
         <article className="mini-offer admin-mini-offer" key={product.id}>
           <img src={localImage(product.image_url || product.image)} alt="" />
           <div><h4>{product.name}</h4><p>{product.category} · {formatKsh(Number(product.selling_price || product.price || 0))} · Stock {product.stock_quantity}</p></div>
@@ -996,7 +1028,18 @@ function CategoriesSection() {
   const remove = async (categoryId: number) => {
     if (!window.confirm('Delete this category?')) return
     const token = localStorage.getItem('pazuri-admin-token')
-    await fetch(apiUrl(`admin/categories/${categoryId}`), { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    let response = await fetch(apiUrl(`admin/categories/${categoryId}`), { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    if (response.status === 409) {
+      const payload = await response.json().catch(() => ({}))
+      const reassignment = window.prompt(`This category contains ${payload.product_count || 'some'} products. Enter a target category ID to reassign and delete:`)
+      if (reassignment) {
+        response = await fetch(apiUrl(`admin/categories/${categoryId}?reassign_to=${encodeURIComponent(reassignment)}`), { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      }
+    }
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}))
+      window.alert(payload.error || 'Unable to delete category.')
+    }
     await load()
   }
 
@@ -1121,6 +1164,76 @@ function OffersSection() {
     </div>
   )
 }
+
+function DealsSection() {
+  const [deals, setDeals] = useState<any[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [editing, setEditing] = useState<number | null>(null)
+  const [form, setForm] = useState({ title: '', description: '', image_url: '', deal_type: 'bundle', original_price: '', deal_price: '', discount_info: '', product_ids: [] as number[], start_date: '', end_date: '', is_active: true, is_featured: false, display_order: '0' })
+
+  const load = async () => {
+    const token = localStorage.getItem('pazuri-admin-token')
+    const headers = { Authorization: `Bearer ${token}` }
+    const [dealRes, productRes] = await Promise.all([fetch(apiUrl('admin/deals'), { headers }), fetch(apiUrl('admin/products'), { headers })])
+    if (dealRes.ok) setDeals((await dealRes.json()).deals || [])
+    if (productRes.ok) setProducts((await productRes.json()).products || [])
+  }
+
+  useEffect(() => { void load() }, [])
+
+  const reset = () => setEditing(null)
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const token = localStorage.getItem('pazuri-admin-token')
+    const payload = { ...form, original_price: Number(form.original_price || 0), deal_price: Number(form.deal_price || 0), display_order: Number(form.display_order || 0) }
+    const response = await fetch(apiUrl(editing ? `admin/deals/${editing}` : 'admin/deals'), {
+      method: editing ? 'PUT' : 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (response.ok) {
+      setEditing(null)
+      setForm({ title: '', description: '', image_url: '', deal_type: 'bundle', original_price: '', deal_price: '', discount_info: '', product_ids: [], start_date: '', end_date: '', is_active: true, is_featured: false, display_order: '0' })
+      await load()
+    }
+  }
+
+  const remove = async (dealId: number) => {
+    if (!window.confirm('Delete this deal?')) return
+    const token = localStorage.getItem('pazuri-admin-token')
+    await fetch(apiUrl(`admin/deals/${dealId}`), { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    await load()
+  }
+
+  return (
+    <div className="offers-admin-layout">
+      <form className="offer-admin-form admin-card" onSubmit={submit}>
+        <h3>{editing ? 'Edit deal' : 'Create deal'}</h3>
+        <div className="offer-form-grid">
+          <label><span>Title</span><input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required /></label>
+          <label><span>Deal type</span><select value={form.deal_type} onChange={(event) => setForm({ ...form, deal_type: event.target.value })}><option value="bundle">Bundle</option><option value="discount">Discount</option><option value="fixed-price">Fixed price</option></select></label>
+          <label className="wide"><span>Description</span><textarea rows={3} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label>
+          <label><span>Original price</span><input type="number" min="0" value={form.original_price} onChange={(event) => setForm({ ...form, original_price: event.target.value })} /></label>
+          <label><span>Deal price</span><input type="number" min="0" value={form.deal_price} onChange={(event) => setForm({ ...form, deal_price: event.target.value })} /></label>
+          <label><span>Discount / label</span><input value={form.discount_info} onChange={(event) => setForm({ ...form, discount_info: event.target.value })} /></label>
+          <label><span>Display order</span><input type="number" value={form.display_order} onChange={(event) => setForm({ ...form, display_order: event.target.value })} /></label>
+          <label><span>Start date</span><input type="datetime-local" value={form.start_date} onChange={(event) => setForm({ ...form, start_date: event.target.value })} /></label>
+          <label><span>End date</span><input type="datetime-local" value={form.end_date} onChange={(event) => setForm({ ...form, end_date: event.target.value })} /></label>
+          <label><span>Image URL</span><input value={form.image_url} onChange={(event) => setForm({ ...form, image_url: event.target.value })} /></label>
+          <label><span>Status</span><select value={form.is_active ? 'active' : 'inactive'} onChange={(event) => setForm({ ...form, is_active: event.target.value === 'active' })}><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
+        </div>
+        <label className="wide"><span>Included products</span><select multiple value={form.product_ids.map(String)} onChange={(event) => setForm({ ...form, product_ids: Array.from(event.currentTarget.selectedOptions).map((option) => Number(option.value)) })}>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label>
+        <div className="offer-form-actions"><button type="submit" className="primary-button">{editing ? 'Save deal' : 'Create deal'}</button>{editing ? <button type="button" onClick={() => { reset(); setForm({ title: '', description: '', image_url: '', deal_type: 'bundle', original_price: '', deal_price: '', discount_info: '', product_ids: [], start_date: '', end_date: '', is_active: true, is_featured: false, display_order: '0' }) }}>Cancel</button> : null}</div>
+      </form>
+      <div className="admin-card offer-admin-list"><h3>Deals</h3>{deals.length === 0 ? <p>No deals have been created.</p> : deals.map((deal) => (
+        <article className="mini-offer admin-mini-offer" key={deal.id}>
+          <div><h4>{deal.title}</h4><p>{deal.is_active ? 'Active' : 'Inactive'} · {formatKsh(Number(deal.deal_price || 0))}</p></div>
+          <div className="admin-mini-actions"><button type="button" onClick={() => { setEditing(deal.id); setForm({ title: deal.title, description: deal.description || '', image_url: deal.image_url || '', deal_type: deal.deal_type || 'bundle', original_price: String(deal.original_price || ''), deal_price: String(deal.deal_price || ''), discount_info: deal.discount_info || '', product_ids: deal.product_ids || [], start_date: deal.start_date ? deal.start_date.slice(0, 16) : '', end_date: deal.end_date ? deal.end_date.slice(0, 16) : '', is_active: deal.is_active !== false, is_featured: deal.is_featured === true, display_order: String(deal.display_order || 0) }) }}>Edit</button><button type="button" onClick={() => void remove(deal.id)}>Delete</button></div>
+        </article>
+      ))}</div>
+    </div>
+  )
+}
 function HeroSlidesSection() {
   const [slides, setSlides] = useState<Array<HeroContent & { id: number; sort_order?: number; is_published?: boolean }>>([])
   const [editing, setEditing] = useState<number | null>(null)
@@ -1184,7 +1297,7 @@ function HeroSlidesSection() {
 
 function AdminDashboardPage() {
   const navigate = useNavigate()
-  const [section, setSection] = useState('Inventory')
+  const [section, setSection] = useState('Overview')
   const [authenticated, setAuthenticated] = useState(false)
   const [authLoading, setAuthLoading] = useState(true)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -1235,7 +1348,7 @@ function AdminDashboardPage() {
       <aside className={`admin-sidebar${drawerOpen ? ' drawer-open' : ''}`}>
         <div className="brand-block admin-brand-block"><PazuriBrand iconSize={52} /></div>
         <nav className="sidebar-nav" aria-label="Admin sections">
-          {['Inventory', 'Orders & Tracking', 'Settings', 'Profile', 'Logout'].map((item) => {
+          {['Overview', 'Offers', 'Products', 'Deals', 'Orders', 'Settings', 'Logout'].map((item) => {
             if (item === 'Logout') {
               return <button key={item} type="button" className="sidebar-link logout-link" onClick={handleLogout}>{item}</button>
             }
@@ -1262,6 +1375,7 @@ function AdminDashboardPage() {
           {section === 'Orders & Tracking' && <OrdersSection />}
           {section === 'POS' && <PosSection />}
           {section === 'Offers' && <OffersSection />}
+          {section === 'Deals' && <DealsSection />}
           {section === 'Categories' && <CategoriesSection />}
           {section === 'WhatsApp' && <WhatsAppSection />}
           {section === 'Reports' && <ReportsSection />}
@@ -1492,12 +1606,16 @@ function SettingsSection() {
   const [profile, setProfile] = useState({ full_name: '', email: '', role: '' })
   const [passwords, setPasswords] = useState({ current_password: '', new_password: '' })
   const [message, setMessage] = useState('')
+  const [business, setBusiness] = useState({ business_name: '', contact_phone: '', contact_email: '', business_location: '', delivery_information: '', opening_hours: '', website_announcement: '', currency: 'KES', delivery_fee: '0' })
 
   useEffect(() => {
     const token = localStorage.getItem('pazuri-admin-token')
     fetch(apiUrl('auth/me'), { headers: { Authorization: `Bearer ${token}` } })
       .then((response) => response.ok ? response.json() : { user: null })
       .then((payload) => setProfile(payload.user || { full_name: '', email: '', role: '' }))
+    fetch(apiUrl('admin/settings'), { headers: { Authorization: `Bearer ${token}` } })
+      .then((response) => response.ok ? response.json() : { settings: {} })
+      .then((payload) => setBusiness((current) => ({ ...current, ...payload.settings })))
   }, [])
 
   const changePassword = async (event: FormEvent<HTMLFormElement>) => {
@@ -1522,6 +1640,35 @@ function SettingsSection() {
         <p>{profile.email}</p>
         <p>Role: {profile.role}</p>
       </div>
+      <form className="offer-admin-form admin-card" onSubmit={async (event) => {
+        event.preventDefault()
+        const token = localStorage.getItem('pazuri-admin-token')
+        const response = await fetch(apiUrl('admin/settings'), {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(business),
+        })
+        const payload = await response.json().catch(() => ({}))
+        setMessage(response.ok ? 'Business settings saved.' : payload.error || 'Unable to save settings.')
+      }}>
+        <h3>Business settings</h3>
+        <div className="offer-form-grid">
+          {[
+            ['business_name', 'Business name'],
+            ['contact_phone', 'Contact phone'],
+            ['contact_email', 'Contact email'],
+            ['business_location', 'Business location'],
+            ['opening_hours', 'Opening hours'],
+            ['delivery_fee', 'Delivery fee'],
+            ['currency', 'Currency'],
+          ].map(([key, label]) => (
+            <label key={key}><span>{label}</span><input value={String(business[key as keyof typeof business] || '')} onChange={(event) => setBusiness((current) => ({ ...current, [key]: event.target.value }))} /></label>
+          ))}
+          <label className="wide"><span>Delivery information</span><textarea rows={3} value={business.delivery_information} onChange={(event) => setBusiness({ ...business, delivery_information: event.target.value })} /></label>
+          <label className="wide"><span>Website announcement</span><textarea rows={2} value={business.website_announcement} onChange={(event) => setBusiness({ ...business, website_announcement: event.target.value })} /></label>
+        </div>
+        <div className="offer-form-actions"><button type="submit" className="primary-button">Save business settings</button></div>
+      </form>
       <form className="offer-admin-form admin-card" onSubmit={changePassword}>
         <h3>Change password</h3>
         <div className="offer-form-grid">
