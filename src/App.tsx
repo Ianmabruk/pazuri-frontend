@@ -902,7 +902,7 @@ function ProductsSection() {
       <div className="admin-card wide admin-category-toolbar">
         <h3>Product categories</h3>
         <div className="shop-category-nav" aria-label="Product categories">
-          {['Fish Butchery', 'Combos', 'Kitchen', 'Drinks', 'Others', ...categories.filter((category) => !['Fish Butchery', 'Combos', 'Kitchen', 'Drinks', 'Others', 'Other'].includes(category.name)).map((category) => category.name)].map((categoryName) => (
+          {['Fish Butchery', 'Combos', 'Kitchen', 'Drinks', ...categories.filter((category) => !['Fish Butchery', 'Combos', 'Kitchen', 'Drinks', 'Other'].includes(category.name)).map((category) => category.name)].map((categoryName) => (
             <button key={categoryName} type="button" className={selectedCategory === categoryName ? 'active' : ''} onClick={() => setSelectedCategory(categoryName)}>{categoryName}</button>
           ))}
         </div>
@@ -951,10 +951,7 @@ function ProductsSection() {
         </div>
         <div className="offer-form-actions"><button type="submit" className="primary-button">{editing ? 'Save product' : 'Create product'}</button>{editing && <button type="button" onClick={reset}>Cancel</button>}</div>
       </form>
-      <div className="admin-card offer-admin-list"><h3>{selectedCategory} products</h3>{products.filter((product) => {
-        if (selectedCategory === 'Others') return !['Fish Butchery', 'Combos', 'Kitchen', 'Drinks'].includes(product.category)
-        return product.category === selectedCategory
-      }).filter((product) => `${product.name} ${product.description}`.toLowerCase().includes(search.toLowerCase())).map((product) => (
+      <div className="admin-card offer-admin-list"><h3>{selectedCategory} products</h3>{products.filter((product) => product.category === selectedCategory).filter((product) => `${product.name} ${product.description}`.toLowerCase().includes(search.toLowerCase())).map((product) => (
         <article className="mini-offer admin-mini-offer" key={product.id}>
           <img src={localImage(product.image_url || product.image)} alt="" />
           <div><h4>{product.name}</h4><p>{product.category} · {formatKsh(Number(product.selling_price || product.price || 0))} · Stock {product.stock_quantity}</p></div>
