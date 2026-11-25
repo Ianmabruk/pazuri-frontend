@@ -6,6 +6,7 @@ from app.extensions import db
 
 from app.extensions import db
 from app.models import Order, OrderItem, OrderStatusUpdate, Product, Sale, SaleItem, StockMovement
+from app.routes.auth import get_authenticated_admin
 
 orders_bp = Blueprint('orders', __name__, url_prefix='/api')
 
@@ -191,6 +192,8 @@ def create_pos_sale():
 
 @orders_bp.get('/orders')
 def list_orders():
+    if get_authenticated_admin() is None:
+        return jsonify({'error': 'Unauthorized'}), 401
     orders = [order.to_dict() for order in Order.query.order_by(Order.created_at.desc()).all()]
     return jsonify({'orders': orders})
 

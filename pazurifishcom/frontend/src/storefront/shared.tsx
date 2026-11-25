@@ -114,7 +114,7 @@ export const DEFAULT_SHOP_CATEGORIES: HomepageCategory[] = [
   { id: -2, name: 'Combos', image_url: '/images/products/family-combo.jpg', display_order: 1, is_active: true, show_on_homepage: true },
   { id: -3, name: 'Kitchen', image_url: '/images/products/fish-and-chips.jpg', display_order: 2, is_active: true, show_on_homepage: true },
   { id: -4, name: 'Drinks', image_url: '/images/products/fresh-drink.jpg', display_order: 3, is_active: true, show_on_homepage: true },
-  { id: -5, name: 'Other', image_url: '/images/products/fresh-fish.jpg', display_order: 4, is_active: true, show_on_homepage: true },
+  { id: -5, name: 'Others', image_url: '/images/products/fresh-fish.jpg', display_order: 4, is_active: true, show_on_homepage: true },
 ]
 
 export const categorySlugFor = (name: string) =>
