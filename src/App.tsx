@@ -901,7 +901,7 @@ function ProductsSection() {
       <div className="admin-card wide admin-category-toolbar">
         <h3>Product categories</h3>
         <div className="shop-category-nav" aria-label="Product categories">
-          {['Fish Butchery', 'Combos', 'Strings', 'Kitchen', 'Other', ...categories.filter((category) => !['Fish Butchery', 'Combos', 'Strings', 'Kitchen', 'Other'].includes(category.name)).map((category) => category.name)].map((categoryName) => (
+          {['Fish Butchery', 'Combos', 'Drinks', 'Kitchen', 'Other', ...categories.filter((category) => !['Fish Butchery', 'Combos', 'Drinks', 'Kitchen', 'Other'].includes(category.name)).map((category) => category.name)].map((categoryName) => (
             <button key={categoryName} type="button" className={selectedCategory === categoryName ? 'active' : ''} onClick={() => setSelectedCategory(categoryName)}>{categoryName}</button>
           ))}
         </div>
