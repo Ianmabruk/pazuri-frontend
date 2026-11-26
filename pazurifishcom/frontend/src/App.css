@@ -145,19 +145,93 @@ img {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 28px;
+  gap: 16px;
   font-size: 0.875rem;
 }
 
-.main-nav a {
-  color: rgba(255, 255, 255, 0.9);
-  transition: color var(--transition);
-  font-weight: 600;
-  letter-spacing: 0.01em;
+.menu-dropdown {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
-.main-nav a:hover {
-  color: var(--yellow);
+.menu-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: all var(--transition);
+}
+
+.menu-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.menu-button:focus-visible {
+  outline: 3px solid rgba(247, 166, 28, 0.65);
+  outline-offset: 3px;
+}
+
+.menu-button .rotate-180 {
+  transform: rotate(180deg);
+  transition: transform var(--transition);
+}
+
+.menu-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 50;
+  min-width: 200px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  box-shadow: var(--shadow-lg);
+  animation: menu-dropdown-in 0.15s ease;
+}
+
+@keyframes menu-dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.menu-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  transition: background-color var(--transition), color var(--transition);
+}
+
+.menu-dropdown-item:hover {
+  background: var(--pale-blue);
+  color: var(--blue);
+}
+
+.menu-dropdown-item:focus-visible {
+  outline: 3px solid rgba(15, 114, 184, 0.65);
+  outline-offset: -3px;
 }
 
 .topbar-actions {

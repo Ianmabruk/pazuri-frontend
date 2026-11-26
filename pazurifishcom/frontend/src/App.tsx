@@ -14,6 +14,9 @@ import {
   ShoppingBasket,
   Truck,
   X,
+  Menu,
+  ChevronDown,
+  RotateCcw,
 } from 'lucide-react'
 import { FaFacebookF, FaInstagram, FaTiktok } from 'react-icons/fa6'
 import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
@@ -101,6 +104,24 @@ function StorefrontPage() {
   const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null)
   const featuredProductsRef = useRef<HTMLDivElement>(null)
   const checkoutIdempotencyRef = useRef('')
+  const [productsRetryCount, setProductsRetryCount] = useState(0)
+
+  const handleProductsRetry = () => {
+    setProductsRetryCount((c) => c + 1)
+  }
+
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const hero = heroSlides[heroIndex] ?? defaultHero
   const resolvedHeroImageUrl = localImage(hero.image_url, defaultHero.image_url)
@@ -140,11 +161,11 @@ function StorefrontPage() {
   useEffect(() => {
     const loadContent = async () => {
       const results = await Promise.allSettled([
-        fetchApiJson<{ products?: Product[] }>('products'),
-        fetchApiJson<{ hero?: HeroContent; slides?: HeroContent[] }>('content/hero'),
-        fetchApiJson<{ offers?: Offer[] }>('offers'),
-        fetchApiJson<{ categories?: HomepageCategory[] }>('categories/homepage'),
-        fetchApiJson<{ deals?: any[] }>('deals'),
+        fetchApiJson<{ products?: Product[] }>('products', 2),
+        fetchApiJson<{ hero?: HeroContent; slides?: HeroContent[] }>('content/hero', 2),
+        fetchApiJson<{ offers?: Offer[] }>('offers', 2),
+        fetchApiJson<{ categories?: HomepageCategory[] }>('categories/homepage', 2),
+        fetchApiJson<{ deals?: any[] }>('deals', 2),
       ])
       const [productsResult, heroResult, offersResult, categoriesResult, dealsResult] = results
       if (productsResult.status === 'fulfilled') {
@@ -194,7 +215,7 @@ function StorefrontPage() {
     }
 
     void loadContent()
-  }, [])
+  }, [productsRetryCount])
 
   const liveOfferCards = useMemo(() => offers.flatMap((offer) => {
     const product = products.find((item) => item.id === offer.product_id)
@@ -357,8 +378,45 @@ function StorefrontPage() {
           <PazuriBrand />
         </a>
 
-        <nav className="main-nav" aria-label="Primary navigation">
-          {homepageCategories.map((category) => <Link key={category.name} to={`/shop/${categorySlugFor(category.name)}`}>{category.name}</Link>)}
+        <nav className="main-nav" aria-label="Primary navigation" ref={menuRef}>
+          <div className="menu-dropdown" role="menubar">
+            <button
+              type="button"
+              className="menu-button"
+              aria-label="Open menu"
+              aria-expanded={menuOpen}
+              aria-haspopup="true"
+              onClick={() => setMenuOpen(!menuOpen)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  setMenuOpen(!menuOpen)
+                }
+              }}
+            >
+              <Menu size={20} strokeWidth={2} />
+              <span>MENU</span>
+              <ChevronDown size={16} className={menuOpen ? 'rotate-180' : ''} />
+            </button>
+            {menuOpen && (
+              <div className="menu-dropdown-panel" role="menu" onKeyDown={(event) => {
+                if (event.key === 'Escape') setMenuOpen(false)
+              }}>
+                {homepageCategories.map((category) => (
+                  <Link
+                    key={category.name}
+                    to={`/shop/${categorySlugFor(category.name)}`}
+                    className="menu-dropdown-item"
+                    role="menuitem"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <PackageCheck size={16} />
+                    <span>{category.name}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
         </nav>
 
         <label className="header-search">
@@ -761,6 +819,9 @@ function AdminLoginPage() {
             {error ? <p className="auth-error">{error}</p> : null}
             <button type="submit" className="primary-button auth-submit" disabled={loading}>{loading ? 'Signing in...' : 'Sign In'}</button>
           </form>
+          <p style={{ marginTop: '16px', textAlign: 'center', color: 'var(--secondary)', fontSize: '0.875rem' }}>
+            Need an account? <button type="button" onClick={() => navigate('/admin/register')} style={{ background: 'none', border: 'none', color: 'var(--blue)', fontWeight: '600', cursor: 'pointer' }}>Create one</button>
+          </p>
         </div>
       </div>
     </div>
@@ -1574,6 +1635,129 @@ function ProductDetailPage() {
   )
 }
 
+function AdminRegisterPage() {
+  const navigate = useNavigate()
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setError('')
+    setSuccess(false)
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.')
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const response = await fetch(apiUrl('auth/register'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full_name: fullName, email, password }),
+      })
+
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(payload.error || 'Unable to create account.')
+
+      setSuccess(true)
+      setFullName('')
+      setEmail('')
+      setPassword('')
+      setConfirmPassword('')
+    } catch (submissionError) {
+      setError(submissionError instanceof Error ? submissionError.message : 'Unable to create account.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (success) {
+    return (
+      <div className="admin-auth-shell">
+        <div className="auth-visual-panel">
+          <div className="auth-overlay" />
+          <div className="auth-copy">
+            <div className="brand-block light-brand"><PazuriBrand iconSize={58} light /></div>
+            <p className="section-kicker dark">Lake Victoria fresh supply</p>
+            <h1>Account created successfully.</h1>
+          </div>
+        </div>
+
+        <div className="auth-form-panel">
+          <div className="auth-form-wrap">
+            <div className="brand-block auth-brand"><PazuriBrand iconSize={52} /></div>
+            <h2>Registration Complete</h2>
+            <p style={{ color: 'var(--secondary)', marginBottom: '24px' }}>Your administrator account has been created. You can now sign in to access the dashboard.</p>
+            <button type="button" className="primary-button auth-submit" onClick={() => navigate('/admin')}>Sign In</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="admin-auth-shell">
+      <div className="auth-visual-panel">
+        <div className="auth-overlay" />
+        <div className="auth-copy">
+          <div className="brand-block light-brand"><PazuriBrand iconSize={58} light /></div>
+          <p className="section-kicker dark">Lake Victoria fresh supply</p>
+          <h1>Create your administrator account.</h1>
+        </div>
+      </div>
+
+      <div className="auth-form-panel">
+        <div className="auth-form-wrap">
+          <div className="brand-block auth-brand"><PazuriBrand iconSize={52} /></div>
+          <h2>Admin Registration</h2>
+          <form onSubmit={handleSubmit} className="auth-form">
+            <label>
+              <span>Full Name</span>
+              <input type="text" value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Your name" required />
+            </label>
+            <label>
+              <span>Email</span>
+              <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="admin@pazurifish.local" required />
+            </label>
+            <label>
+              <span>Password</span>
+              <div className="password-field">
+                <input type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" required minLength={8} />
+                <button type="button" onClick={() => setShowPassword((current) => !current)}>{showPassword ? 'Hide' : 'Show'}</button>
+              </div>
+            </label>
+            <label>
+              <span>Confirm Password</span>
+              <div className="password-field">
+                <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm your password" required minLength={8} />
+              </div>
+            </label>
+            {error ? <p className="auth-error">{error}</p> : null}
+            {success ? <p className="auth-error" style={{ color: 'var(--blue)' }}>Account created successfully! Redirecting...</p> : null}
+            <button type="submit" className="primary-button auth-submit" disabled={loading}>{loading ? 'Creating account...' : 'Create Account'}</button>
+          </form>
+          <p style={{ marginTop: '16px', textAlign: 'center', color: 'var(--secondary)', fontSize: '0.875rem' }}>
+            Already have an account? <button type="button" onClick={() => navigate('/admin')} style={{ background: 'none', border: 'none', color: 'var(--blue)', fontWeight: '600', cursor: 'pointer' }}>Sign in</button>
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function AppRoot() {
   return (
     <BrowserRouter>
@@ -1581,6 +1765,7 @@ function AppRoot() {
         <Route path="/" element={<StorefrontPage />} />
         <Route path="/products/:productId" element={<ProductDetailPage />} />
         <Route path="/admin" element={<AdminLoginPage />} />
+        <Route path="/admin/register" element={<AdminRegisterPage />} />
         <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
         <Route path="/track" element={<OrderTrackingPage />} />
         <Route path="/track/:trackingNumber" element={<OrderTrackingPage />} />

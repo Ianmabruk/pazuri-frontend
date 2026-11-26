@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Home, Minus, Plus, ShoppingBasket, X } from 'lucide-react'
+import { Home, Minus, Plus, ShoppingBasket, X, RotateCcw } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   DEFAULT_SHOP_CATEGORIES,
@@ -26,6 +26,7 @@ export default function CategoryShopPage() {
   )
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [retryCount, setRetryCount] = useState(0)
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
       return JSON.parse(localStorage.getItem('pazuri-cart-v1') || '[]') as CartItem[]
@@ -38,6 +39,11 @@ export default function CategoryShopPage() {
   const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null)
   const [pendingServingSlug, setPendingServingSlug] = useState('')
 
+  const handleRetry = () => {
+    setRetryCount((c) => c + 1)
+    setError('')
+  }
+
   useEffect(() => {
     let active = true
     const load = async () => {
@@ -45,8 +51,8 @@ export default function CategoryShopPage() {
       setError('')
       try {
         const [productPayload, categoryPayload] = await Promise.all([
-          fetchApiJson<{ products?: Product[] }>('products'),
-          fetchApiJson<{ categories?: HomepageCategory[] }>('categories'),
+          fetchApiJson<{ products?: Product[] }>('products', 2),
+          fetchApiJson<{ categories?: HomepageCategory[] }>('categories', 2),
         ])
         if (!active) return
 
@@ -73,7 +79,7 @@ export default function CategoryShopPage() {
     return () => {
       active = false
     }
-  }, [categorySlug])
+  }, [categorySlug, retryCount])
 
   useEffect(() => {
     localStorage.setItem('pazuri-cart-v1', JSON.stringify(cart))
@@ -153,7 +159,12 @@ export default function CategoryShopPage() {
         </div>
 
         {loading ? <div className="empty-state" role="status"><p>Loading products…</p></div> : error ? (
-          <div className="empty-state" role="alert"><p>{error}</p></div>
+          <div className="empty-state" role="alert">
+            <p>{error}</p>
+            <button type="button" className="brand-action-button" onClick={handleRetry}>
+              <RotateCcw size={16} /> Retry
+            </button>
+          </div>
         ) : isKitchen && !selectedServing ? (
           <section className="serving-selection" aria-labelledby="serving-selection-heading">
             <p className="section-kicker">Kitchen menu</p>

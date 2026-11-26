@@ -70,10 +70,14 @@ export type HeroContent = {
 
 const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL
-  || (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api')
+  || (import.meta.env.DEV ? 'http://localhost:5000/api' : '')
 ).replace(/\/+$/, '')
 
-export const apiUrl = (path: string) => `${API_BASE_URL}/${path.replace(/^\//, '')}`
+export const apiUrl = (path: string) => {
+  const base = API_BASE_URL
+  const p = path.replace(/^\//, '')
+  return base ? `${base}/${p}` : `/${p}`
+}
 
 const resourceCache = new Map<string, { expiresAt: number; request: Promise<unknown> }>()
 const RESOURCE_CACHE_MS = 30_000
@@ -82,22 +86,32 @@ export function clearApiCache() {
   resourceCache.clear()
 }
 
-export function fetchApiJson<T>(path: string): Promise<T> {
+export async function fetchApiJson<T>(path: string, retries = 1): Promise<T> {
   const url = apiUrl(path)
   const cached = resourceCache.get(url)
   if (cached && cached.expiresAt > Date.now()) return cached.request as Promise<T>
 
   const request = (async () => {
-    const response = await fetch(url)
-    if (!response.ok) {
-      const payload = await response.json().catch(() => undefined)
-      const message = payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string'
-        ? payload.error
-        : `Unable to load ${path} (${response.status}).`
-      throw new Error(message)
+    let lastError: Error | null = null
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const response = await fetch(url)
+        if (!response.ok) {
+          const payload = await response.json().catch(() => undefined)
+          const message = payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string'
+            ? payload.error
+            : `Unable to load ${path} (${response.status}).`
+          throw new Error(message)
+        }
+        return await response.json() as T
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Unknown error')
+        if (attempt < retries) {
+          await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)))
+        }
+      }
     }
-
-    return await response.json() as T
+    throw lastError
   })()
 
   const entry = { expiresAt: Date.now() + RESOURCE_CACHE_MS, request }

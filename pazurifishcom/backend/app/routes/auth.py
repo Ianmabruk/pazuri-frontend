@@ -52,6 +52,8 @@ def register_user():
         return jsonify({'error': 'full_name, email and password are required'}), 400
     if email not in get_allowed_admin_emails():
         return jsonify({'error': 'This email is not authorized for administrator access.'}), 403
+    if len(password) < 8:
+        return jsonify({'error': 'Password must contain at least 8 characters.'}), 400
 
     if AdminUser.query.filter_by(email=email).first():
         return jsonify({'error': 'An admin account with that email already exists.'}), 409
