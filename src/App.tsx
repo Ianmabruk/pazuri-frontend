@@ -358,7 +358,6 @@ function StorefrontPage() {
         </a>
 
         <nav className="main-nav" aria-label="Primary navigation">
-          <a href="#top">Home</a>
           {homepageCategories.map((category) => <Link key={category.name} to={`/shop/${categorySlugFor(category.name)}`}>{category.name}</Link>)}
         </nav>
 
@@ -690,10 +689,10 @@ function StorefrontPage() {
       ) : null}
 
       <nav className="mobile-nav" aria-label="Mobile navigation">
-        {[{ label: 'Home', href: '/', icon: Home, category: 'All Products' as Category }, ...homepageCategories.slice(0, 3).map((category) => ({ label: category.name, href: `/shop/${categorySlugFor(category.name)}`, icon: PackageCheck, category: category.name as Category }))].map(({ label, href, icon: Icon, category }) => (
-          <Link key={label} to={href} className={selectedCategory === category ? 'mobile-link active' : 'mobile-link'} aria-label={label} onClick={() => setSelectedCategory(category)}>
-            <Icon size={18} />
-            <span>{label}</span>
+        {homepageCategories.slice(0, 4).map((category) => (
+          <Link key={category.name} to={`/shop/${categorySlugFor(category.name)}`} className={selectedCategory === category.name ? 'mobile-link active' : 'mobile-link'} aria-label={category.name} onClick={() => setSelectedCategory(category.name)}>
+            <PackageCheck size={18} />
+            <span>{category.name}</span>
           </Link>
         ))}
       </nav>
@@ -902,7 +901,7 @@ function ProductsSection() {
       <div className="admin-card wide admin-category-toolbar">
         <h3>Product categories</h3>
         <div className="shop-category-nav" aria-label="Product categories">
-          {['Fish Butchery', 'Combos', 'Kitchen', 'Drinks', ...categories.filter((category) => !['Fish Butchery', 'Combos', 'Kitchen', 'Drinks', 'Other'].includes(category.name)).map((category) => category.name)].map((categoryName) => (
+          {['Fish Butchery', 'Combos', 'Strings', 'Kitchen', 'Other', ...categories.filter((category) => !['Fish Butchery', 'Combos', 'Strings', 'Kitchen', 'Other'].includes(category.name)).map((category) => category.name)].map((categoryName) => (
             <button key={categoryName} type="button" className={selectedCategory === categoryName ? 'active' : ''} onClick={() => setSelectedCategory(categoryName)}>{categoryName}</button>
           ))}
         </div>

@@ -1,6 +1,6 @@
 import type { ImgHTMLAttributes } from 'react'
 
-export type Category = 'All Products' | 'Fish Butchery' | 'Kitchen' | 'Combos' | 'Drinks' | 'Other'
+export type Category = 'All Products' | 'Fish Butchery' | 'Combos' | 'Strings' | 'Kitchen' | 'Other'
 
 export type HomepageCategory = {
   id: number
@@ -112,8 +112,9 @@ export function fetchApiJson<T>(path: string): Promise<T> {
 export const DEFAULT_SHOP_CATEGORIES: HomepageCategory[] = [
   { id: -1, name: 'Fish Butchery', image_url: '/images/products/fish-cuts.jpg', display_order: 0, is_active: true, show_on_homepage: true },
   { id: -2, name: 'Combos', image_url: '/images/products/family-combo.jpg', display_order: 1, is_active: true, show_on_homepage: true },
-  { id: -3, name: 'Kitchen', image_url: '/images/products/fish-and-chips.jpg', display_order: 2, is_active: true, show_on_homepage: true },
-  { id: -4, name: 'Drinks', image_url: '/images/products/fresh-drink.jpg', display_order: 3, is_active: true, show_on_homepage: true },
+  { id: -3, name: 'Strings', image_url: '/images/products/fish-cuts.jpg', display_order: 2, is_active: true, show_on_homepage: true },
+  { id: -4, name: 'Kitchen', image_url: '/images/products/fish-and-chips.jpg', display_order: 3, is_active: true, show_on_homepage: true },
+  { id: -5, name: 'Other', image_url: '/images/products/fresh-fish.jpg', display_order: 4, is_active: true, show_on_homepage: true },
 ]
 
 export const categorySlugFor = (name: string) =>
